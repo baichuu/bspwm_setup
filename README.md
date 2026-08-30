@@ -1,23 +1,39 @@
-# Basic bspwm setup for Ubuntu Server
+# bspwm setup for Ubuntu Server
 
-Script cài môi trường bspwm tối thiểu trên Ubuntu Server, chỉ gồm Xorg,
-`bspwm`, `sxhkd` và `xterm`. Script không cài display manager hay thay đổi
-cấu hình mạng của máy.
+This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
+`bspwm`, `sxhkd`, Alacritty, Rofi, Chromium, Picom, Dunst, and a basic Polybar
+configuration. It also explicitly installs the XKB libraries required by
+Alacritty: `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
-## Cài đặt
+The script does not install a display manager or modify the machine's network
+configuration.
+
+## Installation
 
 ```bash
 chmod +x install-bspwm.sh
 sudo ./install-bspwm.sh
 ```
 
-Sau khi cài xong, đăng nhập ở TTY bằng user thường và chạy `startx`.
+After installation, log in as a regular user on a TTY and run `startx`.
 
-Script mặc định cấu hình cho user đã gọi `sudo`. Nếu đang đăng nhập bằng root,
-hãy chỉ định user thường:
+By default, the script configures the user who invoked `sudo`. If you are
+logged in as root, specify a regular user explicitly:
 
 ```bash
-sudo ./install-bspwm.sh --user ten_user
+sudo ./install-bspwm.sh --user username
 ```
 
-Nhấn phím Windows/Super bên trái để mở terminal.
+## Keybindings
+
+- `Super + Enter`: open Alacritty.
+- `Super + Space`: open the Rofi application launcher.
+- `Super + B`: open Chromium.
+- `Super + Q`: close the focused window.
+- `Super + H/J/K/L`: move window focus.
+- `Super + Shift + H/J/K/L`: swap the focused window.
+- `Super + 1..0`: switch workspaces; add `Shift` to move the focused window.
+- `Super + Shift + R`: reload the sxhkd and bspwm configurations.
+
+Picom, Dunst, and Polybar start automatically with bspwm. Polybar displays the
+workspaces, focused window title, CPU usage, memory usage, and time.
