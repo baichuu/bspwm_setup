@@ -127,7 +127,7 @@ install_eww() {
 
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
     CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
-      sh -s -- -y --profile minimal --default-toolchain stable --no-modify-path
+      sh -s -- -y --profile minimal --default-toolchain 1.77.2 --no-modify-path
   git clone --depth 1 --branch v0.6.0 https://github.com/elkowar/eww.git "$eww_build_dir/source"
   CARGO_HOME="$cargo_home" RUSTUP_HOME="$rustup_home" \
     "$cargo_home/bin/cargo" build \
@@ -234,6 +234,7 @@ install_picom() {
     libxcb1-dev \
     libxcb-composite0-dev \
     libxcb-damage0-dev \
+    libxcb-glx0-dev \
     libxcb-image0-dev \
     libxcb-present-dev \
     libxcb-randr0-dev \
@@ -344,6 +345,8 @@ packages=(
   gtk2-engines-murrine
   gtk2-engines-pixbuf
   libdbusmenu-gtk3-4
+  libxcb-composite0
+  libxcb-damage0
   fontconfig
   libxkbcommon0
   libxkbcommon-x11-0

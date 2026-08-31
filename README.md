@@ -108,7 +108,8 @@ the target user's `~/.config` directory during installation:
 Eww is not distributed as an Ubuntu package. If it is missing, the installer
 builds the official v0.6.0 source with X11-only support in `/tmp`, installs only
 the stripped binary, then removes packages that were added solely for the
-build. Rust, Cargo, and the source tree are not retained.
+build. The temporary Rust toolchain is pinned to v1.77.2 for compatibility with
+Eww's locked dependencies. Rust, Cargo, and the source tree are not retained.
 
 Neovim v0.11.7 is installed from the official GitHub release tarball on amd64
 and arm64 after verifying its upstream SHA-256 digest. Picom v13 is compiled
