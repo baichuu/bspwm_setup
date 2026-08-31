@@ -308,6 +308,7 @@ for required_config in \
   config/eww/scripts/powermenu \
   config/eww/scripts/updates \
   config/eww/scripts/volume-status \
+  config/fonts/feather.ttf \
   config/fonts/IosevkaNerdFont-Regular.ttf \
   config/gtk-2.0/gtkrc \
   config/gtk-3.0/settings.ini \
@@ -407,6 +408,7 @@ gtk3_dir="$config_dir/gtk-3.0"
 wallpaper_dir="$target_home/.local/share/backgrounds"
 gtk_theme_dir="$target_home/.themes/siduck-onedark"
 font_dir="$target_home/.local/share/fonts/Iosevka"
+icon_font_dir="$target_home/.local/share/fonts/Icons"
 mkdir -p \
   "$bspwm_dir" \
   "$sxhkd_dir" \
@@ -417,7 +419,8 @@ mkdir -p \
   "$zathura_dir" \
   "$gtk3_dir" \
   "$wallpaper_dir" \
-  "$font_dir"
+  "$font_dir" \
+  "$icon_font_dir"
 
 backup_file "$bspwm_dir/bspwmrc"
 backup_file "$sxhkd_dir/sxhkdrc"
@@ -432,6 +435,7 @@ backup_file "$target_home/.zshrc"
 backup_file "$target_home/.Xresources"
 backup_file "$wallpaper_dir/bspwm-wallpaper.png"
 backup_file "$font_dir/IosevkaNerdFont-Regular.ttf"
+backup_file "$icon_font_dir/feather.ttf"
 backup_file "$target_home/.xinitrc"
 backup_directory "$gtk_theme_dir" "$SCRIPT_DIR/config/gtk-theme/siduck-onedark"
 backup_directory "$eww_dir" "$SCRIPT_DIR/config/eww"
@@ -536,6 +540,9 @@ touch "$eww_dir/.bspwm-setup"
 install -m 0644 \
   "$SCRIPT_DIR/config/fonts/IosevkaNerdFont-Regular.ttf" \
   "$font_dir/IosevkaNerdFont-Regular.ttf"
+install -m 0644 \
+  "$SCRIPT_DIR/config/fonts/feather.ttf" \
+  "$icon_font_dir/feather.ttf"
 
 install -m 0755 /dev/stdin "$target_home/.xinitrc" <<'EOF'
 #!/bin/sh
@@ -571,6 +578,9 @@ cp -a -- \
 cp -a -- \
   "$font_dir/IosevkaNerdFont-Regular.ttf" \
   "$font_dir/IosevkaNerdFont-Regular.ttf.bspwm-setup"
+cp -a -- \
+  "$icon_font_dir/feather.ttf" \
+  "$icon_font_dir/feather.ttf.bspwm-setup"
 cp -a -- "$target_home/.xinitrc" "$target_home/.xinitrc.bspwm-setup"
 
 chown -R "$target_user:$target_group" \
@@ -584,7 +594,8 @@ chown -R "$target_user:$target_group" \
   "$gtk3_dir" \
   "$wallpaper_dir" \
   "$gtk_theme_dir" \
-  "$font_dir"
+  "$font_dir" \
+  "$icon_font_dir"
 chown "$target_user:$target_group" \
   "$target_home/.gtkrc-2.0" \
   "$target_home/.gtkrc-2.0.bspwm-setup" \
@@ -595,7 +606,7 @@ chown "$target_user:$target_group" \
   "$target_home/.xinitrc" \
   "$target_home/.xinitrc.bspwm-setup"
 
-runuser -u "$target_user" -- fc-cache -f "$font_dir"
+runuser -u "$target_user" -- fc-cache -f "$font_dir" "$icon_font_dir"
 
 zsh_path=$(command -v zsh)
 if [[ $(getent passwd "$target_user" | cut -d: -f7) != "$zsh_path" ]]; then

@@ -89,6 +89,8 @@ the target user's `~/.config` directory during installation:
   CPU/memory helpers, a Rofi power menu, and brightness/PipeWire controls.
 - `config/fonts/IosevkaNerdFont-Regular.ttf`: the single font weight required
   by the original Zsh prompt and Eww's Artix/power glyphs.
+- `config/fonts/feather.ttf`: the small icon font used by Eww's update, disk,
+  and memory indicators.
 - `config/picom/picom.conf`: basic shadows and rounded corners, plus one normal
   window rule for open, close, and geometry animations on Picom v13.
 - `config/zathura/zathurarc`: the current dark, recolored PDF-viewer theme and
