@@ -101,7 +101,7 @@
          :spacing 8
       (button :class "launcher"
               :tooltip "Applications"
-              :onclick "rofi -show drun"
+              :onclick "rofi -show drun -theme ~/.config/rofi/launcher.rasi"
         (label :class "launcher-icon" :text ""))
       (box :class "status-pill updates-count"
            :tooltip "Available package updates"

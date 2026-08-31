@@ -1,6 +1,7 @@
 #!/bin/sh
 
-choice=$(printf 'Shutdown\nReboot\nLogout\nCancel\n' | rofi -dmenu -i -p Power)
+choice=$(printf 'Shutdown\nReboot\nLogout\nCancel\n' |
+  rofi -dmenu -i -theme "$HOME/.config/rofi/powermenu.rasi")
 
 case $choice in
 Shutdown) systemctl poweroff ;;

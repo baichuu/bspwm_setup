@@ -1,0 +1,110 @@
+configuration {
+    show-icons: false;
+}
+
+* {
+    background: #171717;
+    foreground: #d9d9d9;
+    selection-background: #292929;
+    urgent: #ff7575;
+    border-colour: #242424;
+    font: "Iosevka Nerd Font 18";
+}
+
+window {
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 680px;
+    padding: 0px;
+    border: 0px;
+    border-radius: 35px;
+    background-color: @background;
+}
+
+mainbox {
+    spacing: 10px;
+    padding: 10px;
+    border: 2px;
+    border-color: @border-colour;
+    border-radius: 35px;
+    background-color: transparent;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    spacing: 10px;
+    padding: 8px 12px;
+    border: 1px;
+    border-color: @border-colour;
+    border-radius: 200px;
+    background-color: @selection-background;
+    text-color: @foreground;
+    children: [ prompt, entry, textbox-title-close ];
+}
+
+prompt {
+    enabled: true;
+    padding: 3px 6px 3px 5px;
+    background-color: inherit;
+    text-color: inherit;
+}
+
+entry {
+    enabled: true;
+    padding: 3px 0px;
+    background-color: inherit;
+    text-color: inherit;
+    cursor: text;
+    placeholder: "Type to search...";
+    placeholder-color: inherit;
+}
+
+textbox-title-close {
+    enabled: true;
+    expand: false;
+    padding: 3px;
+    str: " ";
+    background-color: transparent;
+    text-color: @urgent;
+}
+
+listview {
+    enabled: true;
+    columns: 2;
+    lines: 2;
+    cycle: true;
+    dynamic: false;
+    scrollbar: false;
+    layout: vertical;
+    flow: vertical;
+    fixed-height: true;
+    fixed-columns: true;
+    spacing: 5px;
+    background-color: transparent;
+}
+
+element {
+    enabled: true;
+    padding: 9px 10px 9px 20px;
+    border: 0px;
+    border-radius: 200px;
+    background-color: transparent;
+    text-color: @foreground;
+    cursor: pointer;
+}
+
+element selected.normal,
+element selected.active,
+element selected.urgent {
+    background-color: @selection-background;
+    text-color: @foreground;
+}
+
+element-text {
+    background-color: transparent;
+    text-color: inherit;
+    cursor: inherit;
+    vertical-align: 0.5;
+    horizontal-align: 0.0;
+}

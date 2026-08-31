@@ -1,0 +1,31 @@
+#!/bin/sh
+
+theme="$HOME/.config/rofi/screenshot.rasi"
+options='Area Selection
+Full Desktop
+Full Desktop (3s delay)
+Area Selection (3s delay)'
+
+choice=$(printf '%s\n' "$options" | rofi -dmenu -i -p '  ' -theme "$theme") || exit 0
+
+delay_capture() {
+  dunstify -a Screenshot -t 2500 Screenshot 'Capturing in 3 seconds...'
+  sleep 3
+}
+
+case $choice in
+'Area Selection')
+  flameshot gui
+  ;;
+'Full Desktop')
+  flameshot full -c
+  ;;
+'Full Desktop (3s delay)')
+  delay_capture
+  flameshot full -c
+  ;;
+'Area Selection (3s delay)')
+  delay_capture
+  flameshot gui
+  ;;
+esac

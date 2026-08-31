@@ -2,7 +2,7 @@
 
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, Chromium, Picom, Dunst, Eww, Zathura,
-Neovim, Zsh, PipeWire, PipeWire Pulse, WirePlumber, and a configured wallpaper.
+Flameshot, Neovim, Zsh, PipeWire, PipeWire Pulse, WirePlumber, and a configured wallpaper.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
@@ -58,6 +58,8 @@ sudo ./install-bspwm.sh --user username
 - `Super + Enter`: open Alacritty.
 - `Super + Space`: open the Rofi application launcher.
 - `Super + B`: open Chromium.
+- `Super + S`: open the four-action Flameshot screenshot menu.
+- `Super + P`: open the styled power menu.
 - `Super + Q`: close the focused window.
 - `Super + H/J/K/L`: move window focus.
 - `Super + Shift + H/J/K/L`: swap the focused window.
@@ -70,7 +72,7 @@ Picom, Dunst, and Eww start automatically with bspwm. The Eww bar contains only
 an Artix launcher button, an APT update count, bspwm workspaces, clock/date, hover-expandable
 brightness and PipeWire volume controls, RAM/root-disk/CPU usage, a simple
 always-visible system tray, and a power button. It deliberately excludes a dock, runcat, notification center,
-window list, and theme selector. The launcher opens the regular Rofi drun mode;
+window list, and theme selector. The launcher opens the styled Rofi drun mode;
 the power button opens a simple unstyled Rofi menu. Feh applies the bundled
 wallpaper whenever bspwm starts.
 
@@ -97,6 +99,10 @@ the target user's `~/.config` directory during installation:
   and memory indicators.
 - `config/picom/picom.conf`: basic shadows without corner clipping, plus one normal
   window rule for open, close, and geometry animations on Picom v13.
+- `config/rofi/launcher.rasi`: rounded Espresso application launcher based on
+  the source workstation, with Papirus icons and only one red close glyph.
+- `config/rofi/screenshot.rasi` and `config/rofi/powermenu.rasi`: matching
+  screenshot and headerless power menus.
 - `config/sxhkd/sxhkdrc`: application, bspwm, audio, brightness, and reload
   keybindings.
 - `config/zathura/zathurarc`: the current dark, recolored PDF-viewer theme and

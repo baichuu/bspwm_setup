@@ -286,6 +286,7 @@ for required_config in \
   config/eww/scripts/brightness-control \
   config/eww/scripts/memory \
   config/eww/scripts/powermenu \
+  config/eww/scripts/screenshot \
   config/eww/scripts/updates \
   config/eww/scripts/volume-status \
   config/fonts/feather.ttf \
@@ -293,6 +294,9 @@ for required_config in \
   config/gtk-2.0/gtkrc \
   config/gtk-3.0/settings.ini \
   config/picom/picom.conf \
+  config/rofi/launcher.rasi \
+  config/rofi/powermenu.rasi \
+  config/rofi/screenshot.rasi \
   config/sxhkd/sxhkdrc \
   config/wallpaper/bspwm-wallpaper.png \
   config/x11/Xresources \
@@ -314,6 +318,7 @@ packages=(
   chromium
   dunst
   feh
+  flameshot
   zathura
   zathura-pdf-poppler
   zsh
@@ -384,6 +389,7 @@ alacritty_dir="$config_dir/alacritty"
 dunst_dir="$config_dir/dunst"
 dunst_icon_dir="$dunst_dir/icons"
 picom_dir="$config_dir/picom"
+rofi_dir="$config_dir/rofi"
 eww_dir="$config_dir/eww"
 zathura_dir="$config_dir/zathura"
 gtk3_dir="$config_dir/gtk-3.0"
@@ -407,6 +413,7 @@ mkdir -p \
   "$dunst_dir" \
   "$dunst_icon_dir" \
   "$picom_dir" \
+  "$rofi_dir" \
   "$zathura_dir" \
   "$gtk3_dir" \
   "$wallpaper_dir" \
@@ -419,6 +426,9 @@ backup_file "$alacritty_dir/alacritty.toml"
 backup_file "$dunst_dir/dunstrc"
 backup_file "$dunst_icon_dir/notification.png"
 backup_file "$picom_dir/picom.conf"
+backup_file "$rofi_dir/launcher.rasi"
+backup_file "$rofi_dir/powermenu.rasi"
+backup_file "$rofi_dir/screenshot.rasi"
 backup_file "$zathura_dir/zathurarc"
 backup_file "$gtk3_dir/settings.ini"
 backup_file "$target_home/.gtkrc-2.0"
@@ -444,6 +454,9 @@ install -m 0644 \
   "$SCRIPT_DIR/config/dunst/notification.png" \
   "$dunst_icon_dir/notification.png"
 install -m 0644 "$picom_config_source" "$picom_dir/picom.conf"
+install -m 0644 "$SCRIPT_DIR/config/rofi/launcher.rasi" "$rofi_dir/launcher.rasi"
+install -m 0644 "$SCRIPT_DIR/config/rofi/powermenu.rasi" "$rofi_dir/powermenu.rasi"
+install -m 0644 "$SCRIPT_DIR/config/rofi/screenshot.rasi" "$rofi_dir/screenshot.rasi"
 install -m 0644 "$SCRIPT_DIR/config/zathura/zathurarc" "$zathura_dir/zathurarc"
 install -m 0644 "$SCRIPT_DIR/config/gtk-3.0/settings.ini" "$gtk3_dir/settings.ini"
 install -m 0644 "$SCRIPT_DIR/config/gtk-2.0/gtkrc" "$target_home/.gtkrc-2.0"
@@ -487,6 +500,9 @@ cp -a -- \
   "$dunst_icon_dir/notification.png" \
   "$dunst_icon_dir/notification.png.bspwm-setup"
 cp -a -- "$picom_dir/picom.conf" "$picom_dir/picom.conf.bspwm-setup"
+cp -a -- "$rofi_dir/launcher.rasi" "$rofi_dir/launcher.rasi.bspwm-setup"
+cp -a -- "$rofi_dir/powermenu.rasi" "$rofi_dir/powermenu.rasi.bspwm-setup"
+cp -a -- "$rofi_dir/screenshot.rasi" "$rofi_dir/screenshot.rasi.bspwm-setup"
 cp -a -- "$zathura_dir/zathurarc" "$zathura_dir/zathurarc.bspwm-setup"
 cp -a -- "$gtk3_dir/settings.ini" "$gtk3_dir/settings.ini.bspwm-setup"
 cp -a -- "$target_home/.gtkrc-2.0" "$target_home/.gtkrc-2.0.bspwm-setup"
@@ -509,6 +525,7 @@ chown -R "$target_user:$target_group" \
   "$alacritty_dir" \
   "$dunst_dir" \
   "$picom_dir" \
+  "$rofi_dir" \
   "$eww_dir" \
   "$zathura_dir" \
   "$gtk3_dir" \

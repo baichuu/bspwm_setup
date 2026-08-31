@@ -3,7 +3,13 @@ super + Return
     alacritty -e zsh -l
 
 super + space
-    rofi -show drun
+    rofi -show drun -theme ~/.config/rofi/launcher.rasi
+
+super + s
+    sh ~/.config/eww/scripts/screenshot
+
+super + p
+    ~/.config/eww/scripts/powermenu
 
 super + b
     chromium --ozone-platform=x11
