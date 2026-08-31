@@ -128,3 +128,30 @@ and arm64 after verifying its upstream SHA-256 digest. Picom v13 is compiled
 from the upstream release tag with XRender and animation support; unused
 OpenGL, D-Bus, regex, documentation, and Compton-compatibility build options
 are disabled.
+
+## Vivado and OpenEye
+
+Vivado and OpenEye are intentionally separate from the desktop installation.
+For license-free synthesis and implementation reports, download the official
+Vivado ML Standard 2025.2 Linux web installer, then run:
+
+```bash
+./install-vivado.sh ~/Downloads/FPGAs_AdaptiveSoCs_Unified_2025.2_*_Lin64.bin
+```
+
+Run the script as the regular X11 user, not with `sudo`. The AMD installer is
+interactive because downloading requires an AMD account and the user must
+accept the license agreements. Select only Vivado ML Standard and the Zynq
+UltraScale+ MPSoC device family. Standard 2025.2 does not require a FLEX license
+and supports XCZU1 through XCZU7 devices, but not the ZU19EG used by the OpenEye
+paper. The script creates an `AMD Vivado 2025.2` desktop entry for Rofi.
+
+Install the pinned OpenEye RTL and Python environment separately:
+
+```bash
+./install-openeye.sh
+```
+
+This installs Icarus Verilog, Verilator, and GTKWave, clones OpenEye to
+`~/Projects/OpenEye`, and uses `uv` to create `.venv` and install all Python
+dependencies. It does not install Vitis or PetaLinux.
