@@ -1,0 +1,9 @@
+#!/bin/sh
+
+cores=$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '1')
+cpu_load=$(cut -d' ' -f1 /proc/loadavg)
+awk -v cpu_load="$cpu_load" -v cores="$cores" 'BEGIN {
+  usage = cpu_load * 100 / cores
+  if (usage > 100) usage = 100
+  printf "%.0f%%\n", usage
+}'

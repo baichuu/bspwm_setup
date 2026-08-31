@@ -1,0 +1,4 @@
+#!/bin/sh
+
+apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null |
+  awk '/^Inst / { count++ } END { print count + 0 }'

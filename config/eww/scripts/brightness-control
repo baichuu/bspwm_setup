@@ -1,0 +1,46 @@
+#!/bin/sh
+
+backlight_path=''
+for candidate in /sys/class/backlight/*; do
+  [ -e "$candidate" ] || continue
+  backlight_path="$candidate"
+  break
+done
+[ -n "$backlight_path" ] || exit 1
+
+device="${backlight_path##*/}"
+read -r current <"$backlight_path/brightness"
+read -r maximum <"$backlight_path/max_brightness"
+current_percent=$((current * 100 / maximum))
+
+case ${1:-} in
+get)
+  printf '%s\n' "$current_percent"
+  exit 0
+  ;;
+up)
+  target=$((current_percent + 5))
+  ;;
+down)
+  target=$((current_percent - 5))
+  ;;
+set)
+  target=$(awk -v value="${2:-$current_percent}" 'BEGIN { print int(value + 0.5) }')
+  ;;
+*)
+  printf 'Usage: %s {get|up|down|set PERCENT} [quiet]\n' "${0##*/}" >&2
+  exit 2
+  ;;
+esac
+
+[ "$target" -ge 1 ] || target=1
+[ "$target" -le 100 ] || target=100
+raw=$(((target * maximum + 50) / 100))
+busctl --system call org.freedesktop.login1 \
+  /org/freedesktop/login1/session/self \
+  org.freedesktop.login1.Session SetBrightness ssu \
+  backlight "$device" "$raw" >/dev/null
+
+if [ "${3:-}" != quiet ] && [ "${2:-}" != quiet ]; then
+  dunstify -r 101001 -t 1000 -u low "Brightness" "Level: ${target}%"
+fi

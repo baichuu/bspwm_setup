@@ -1,0 +1,153 @@
+(defpoll bar_time :interval "10s"
+  `date +'%a %d  |  %H:%M'`)
+
+(defpoll active_workspace :interval "500ms" :initial "1"
+  `bspc query -D -d focused --names`)
+
+(defpoll cpu_usage :interval "2s" :initial "0%"
+  `~/.config/eww/scripts/cpu`)
+
+(defpoll memory_usage :interval "2s" :initial "0%"
+  `~/.config/eww/scripts/memory`)
+
+(defpoll audio_status :interval "1s" :initial '{"volume":0,"muted":false}'
+  `~/.config/eww/scripts/volume-status`)
+
+(defvar volume_hover false)
+
+(defpoll brightness :interval "1s" :initial "100"
+  `~/.config/eww/scripts/brightness-control get`)
+
+(defvar brightness_hover false)
+
+(defpoll update_count :interval "888s" :initial "0"
+  `~/.config/eww/scripts/updates`)
+
+(defwidget workspace-dot [number]
+  (button :class {active_workspace == number ? "workspace-dot active" : "workspace-dot"}
+          :onclick "bspc desktop -f '^${number}'"
+    (label :class {active_workspace == number ? "workspace-icon" : "workspace-empty"}
+           :text {active_workspace == number ? "" : ""})))
+
+(defwidget workspace-list []
+  (box :class "workspace-list"
+       :space-evenly false
+       :spacing 3
+    (workspace-dot :number "1")
+    (workspace-dot :number "2")
+    (workspace-dot :number "3")))
+
+(defwidget hardware-pill [icon value suffix accent]
+  (box :class "hardware-pill ${accent}"
+       :orientation "h"
+       :space-evenly false
+       :spacing 0
+    (label :class "hardware-icon ${accent}" :text icon)
+    (label :class "hardware-value" :text "${value}${suffix}")))
+
+(defwidget volume-control []
+  (eventbox :onhover "eww --config ~/.config/eww update volume_hover=true"
+            :onhoverlost "eww --config ~/.config/eww update volume_hover=false"
+    (box :class {audio_status.muted
+            ? volume_hover ? "volume-control muted expanded" : "volume-control muted"
+            : volume_hover ? "volume-control expanded" : "volume-control"}
+         :orientation "h"
+         :space-evenly false
+         :spacing 0
+      (button :class "volume-icon"
+              :onclick "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+        (label :class "volume-glyph"
+               :text {audio_status.muted ? "" : ""}))
+      (revealer :reveal volume_hover
+                :transition "slideright"
+                :duration "160ms"
+        (box :class "volume-slider-wrap" :orientation "h"
+          (scale :class "volume-slider"
+                 :orientation "h"
+                 :hexpand true
+                 :min 0
+                 :max 100
+                 :value {audio_status.volume}
+                 :round-digits 0
+                 :onchange "wpctl set-mute @DEFAULT_AUDIO_SINK@ 0; wpctl set-volume @DEFAULT_AUDIO_SINK@ {}%"))))))
+
+(defwidget brightness-control []
+  (eventbox :onhover "eww --config ~/.config/eww update brightness_hover=true"
+            :onhoverlost "eww --config ~/.config/eww update brightness_hover=false"
+    (box :class {brightness_hover ? "brightness-control expanded" : "brightness-control"}
+         :orientation "h"
+         :space-evenly false
+         :spacing 0
+      (button :class "brightness-icon"
+        (label :class "brightness-glyph" :text ""))
+      (revealer :reveal brightness_hover
+                :transition "slideright"
+                :duration "160ms"
+        (box :class "brightness-slider-wrap" :orientation "h"
+          (scale :class "brightness-slider"
+                 :orientation "h"
+                 :hexpand true
+                 :min 1
+                 :max 100
+                 :value brightness
+                 :round-digits 0
+                 :onchange "~/.config/eww/scripts/brightness-control set {} quiet"))))))
+
+(defwidget bspwm-bar []
+  (centerbox :class "preview-bar"
+    (box :class "bar-left"
+         :halign "start"
+         :space-evenly false
+         :spacing 8
+      (button :class "launcher"
+              :tooltip "Applications"
+              :onclick "rofi -show drun"
+        (label :class "launcher-icon" :text ""))
+      (box :class "status-pill updates-count"
+           :tooltip "Available package updates"
+           :space-evenly false
+           :spacing 3
+        (label :class "updates-icon" :text "")
+        (label :class "updates-value" :text update_count))
+      (workspace-list))
+    (label :class "clock" :text bar_time)
+    (box :class "bar-right"
+         :halign "end"
+         :space-evenly false
+         :spacing 13
+      (box :class "quick-controls"
+           :space-evenly false
+           :spacing 2
+        (brightness-control)
+        (volume-control))
+      (box :class "hardware-list"
+           :space-evenly false
+           :spacing 6
+        (hardware-pill :accent "memory" :icon ""
+                       :value memory_usage :suffix "")
+        (hardware-pill :accent "disk" :icon ""
+                       :value {round(EWW_DISK["/"].used_perc, 0)} :suffix "%")
+        (hardware-pill :accent "cpu" :icon ""
+                       :value cpu_usage :suffix ""))
+      (box :class "bar-tray"
+           :space-evenly false
+        (systray :icon-size 26
+                 :spacing 8
+                 :prepend-new false))
+      (button :class "power"
+              :tooltip "Power menu"
+              :onclick "~/.config/eww/scripts/powermenu"
+        (label :class "power-glyph" :text "")))))
+
+(defwindow bar-window
+  :monitor "<primary>"
+  :geometry (geometry
+    :x "0%"
+    :y "5px"
+    :width "75%"
+    :height "60px"
+    :anchor "top center")
+  :stacking "fg"
+  :windowtype "dock"
+  :wm-ignore true
+  (bspwm-bar))

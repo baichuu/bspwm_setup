@@ -1,0 +1,10 @@
+#!/bin/sh
+
+choice=$(printf 'Shutdown\nReboot\nLogout\nCancel\n' | rofi -dmenu -i -p Power)
+
+case $choice in
+Shutdown) systemctl poweroff ;;
+Reboot) systemctl reboot ;;
+Logout) bspc quit ;;
+*) exit 0 ;;
+esac

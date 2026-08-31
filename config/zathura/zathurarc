@@ -1,0 +1,39 @@
+set default-fg                "#d9d9d9"
+set default-bg                "#171717"
+
+set completion-bg             "#292929"
+set completion-fg             "#d9d9d9"
+set completion-highlight-bg   "#76bef9"
+set completion-highlight-fg   "#171717"
+set completion-group-bg       "#0d0d0d"
+set completion-group-fg       "#d9d9d9"
+
+set statusbar-fg              "#d9d9d9"
+set statusbar-bg              "#0d0d0d"
+set inputbar-fg               "#d9d9d9"
+set inputbar-bg               "#171717"
+
+set notification-bg           "#171717"
+set notification-fg           "#d9d9d9"
+set notification-error-bg     "#171717"
+set notification-error-fg     "#ff7575"
+set notification-warning-bg   "#171717"
+set notification-warning-fg   "#e9a144"
+
+set recolor                   "true"
+set recolor-lightcolor        "#171717"
+set recolor-darkcolor         "#d9d9d9"
+
+set render-loading-bg         "#171717"
+set render-loading-fg         "#d9d9d9"
+
+set highlight-color           "rgba(215,186,125,0.3)"
+set highlight-fg              "#0d0d0d"
+set highlight-active-color    "rgba(86,156,214,0.3)"
+
+set guioptions                ""
+set selection-notification    false
+
+map <C-i> recolor
+map J zoom out
+map K zoom in

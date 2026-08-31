@@ -1,0 +1,71 @@
+[general]
+live_config_reload = true
+
+[env]
+TERM = "alacritty"
+WINIT_X11_SCALE_FACTOR = "1.0"
+
+[window]
+padding = { x = 6, y = 6 }
+dynamic_padding = true
+
+[scrolling]
+history = 10000
+multiplier = 3
+
+[font]
+size = 12
+builtin_box_drawing = true
+
+[font.normal]
+family = "Iosevka Nerd Font"
+
+[cursor]
+blink_interval = 550
+unfocused_hollow = false
+thickness = 0.15
+
+[cursor.style]
+blinking = "On"
+shape = "Block"
+
+[bell]
+animation = "Linear"
+duration = 0
+
+[keyboard]
+bindings = [
+  { key = "Return", mods = "Alt", action = "ToggleFullscreen" },
+]
+
+[colors.primary]
+background = "#171717"
+foreground = "#d9d9d9"
+
+[colors.cursor]
+cursor = "#d9d9d9"
+text = "#171717"
+
+[colors.selection]
+background = "#292929"
+text = "#d9d9d9"
+
+[colors.normal]
+black = "#424242"
+red = "#ff7575"
+green = "#7dc5a2"
+yellow = "#e9a144"
+blue = "#76bef9"
+magenta = "#c993ef"
+cyan = "#62cae9"
+white = "#d9d9d9"
+
+[colors.bright]
+black = "#888888"
+red = "#ff7575"
+green = "#9be6c1"
+yellow = "#f4c25f"
+blue = "#349bef"
+magenta = "#baa8f5"
+cyan = "#51decf"
+white = "#ffffff"
