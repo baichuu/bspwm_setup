@@ -71,8 +71,8 @@ textbox-title-close {
 
 listview {
     enabled: true;
-    columns: 2;
-    lines: 2;
+    columns: 1;
+    lines: 4;
     cycle: true;
     dynamic: false;
     scrollbar: false;

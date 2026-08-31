@@ -3,7 +3,7 @@ super + Return
     alacritty -e zsh -l
 
 super + space
-    rofi -show drun -theme ~/.config/rofi/launcher.rasi
+    rofi -show drun -show-icons -icon-theme Papirus-Dark -theme ~/.config/rofi/launcher.rasi
 
 super + s
     sh ~/.config/eww/scripts/screenshot

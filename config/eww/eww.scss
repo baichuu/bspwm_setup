@@ -13,7 +13,7 @@ $white-bright: #ffffff;
 * {
   all: unset;
   font-family: "Iosevka Nerd Font";
-  font-size: 1.15rem;
+  font-size: 1.35rem;
 }
 
 window {
@@ -21,7 +21,7 @@ window {
 }
 
 .preview-bar {
-  min-height: 58px;
+  min-height: 66px;
   color: $fg;
   background-color: $bg;
   border: 2px solid $border;
@@ -34,7 +34,7 @@ window {
 }
 
 .quick-controls {
-  min-height: 44px;
+  min-height: 52px;
   padding: 1px 5px;
   background-color: rgba($fg, 0.08);
   border-radius: 999px;
@@ -42,7 +42,7 @@ window {
 
 .volume-control,
 .brightness-control {
-  min-height: 38px;
+  min-height: 46px;
   padding-right: 0;
   background-color: transparent;
   border-radius: 999px;
@@ -63,8 +63,8 @@ window {
 
 .volume-icon,
 .brightness-icon {
-  min-width: 36px;
-  min-height: 38px;
+  min-width: 44px;
+  min-height: 46px;
   margin-right: 0;
   background-color: transparent;
   border-radius: 999px;
@@ -83,7 +83,7 @@ window {
 
 .volume-glyph,
 .brightness-glyph {
-  font-size: 1.4rem;
+  font-size: 1.65rem;
 }
 
 .volume-slider,
@@ -142,16 +142,16 @@ scale.brightness-slider slider {
 }
 
 .launcher-icon {
-  font-size: 1.45rem;
+  font-size: 1.75rem;
 }
 
 .status-pill {
-  min-height: 38px;
+  min-height: 46px;
   padding: 0 10px;
   color: $grey;
   background-color: $sel-bg;
   border-radius: 999px;
-  font-size: 1rem;
+  font-size: 1.25rem;
 }
 
 .updates-count {
@@ -160,11 +160,11 @@ scale.brightness-slider slider {
 }
 
 .updates-icon {
-  font-size: 1.3rem;
+  font-size: 1.55rem;
 }
 
 .updates-value {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
 }
 
 .workspace-dot {
@@ -183,43 +183,43 @@ scale.brightness-slider slider {
 }
 
 .workspace-icon {
-  font-size: 1.4rem;
+  font-size: 1.6rem;
 }
 
 .workspace-empty {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
 }
 
 .clock {
   color: $fg;
-  font-size: 1.1rem;
+  font-size: 1.3rem;
 }
 
 .bar-right {
   color: $grey;
-  font-size: 1.15rem;
+  font-size: 1.3rem;
 }
 
 .hardware-list {
-  min-height: 44px;
+  min-height: 52px;
   padding: 3px 8px 3px 2px;
   background-color: rgba($fg, 0.08);
   border-radius: 999px;
 }
 
 .hardware-pill {
-  min-height: 38px;
+  min-height: 46px;
   padding-right: 10px;
   color: $fg;
   background-color: transparent;
 }
 
 .hardware-icon {
-  min-width: 42px;
-  min-height: 42px;
+  min-width: 50px;
+  min-height: 50px;
   margin: 0 6px 0 0;
   border-radius: 999px;
-  font-size: 1.4rem;
+  font-size: 1.6rem;
 }
 
 .hardware-icon.cpu {
@@ -244,11 +244,11 @@ scale.brightness-slider slider {
 .hardware-value {
   margin-left: 0.2rem;
   color: $fg;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
 }
 
 .bar-tray {
-  min-height: 38px;
+  min-height: 46px;
   padding: 0 12px;
   background-color: rgba($fg, 0.08);
   border-radius: 999px;
@@ -292,8 +292,8 @@ menu separator {
 }
 
 .power {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 52px;
+  min-height: 52px;
   padding-right: 8px;
   padding-left: 1px;
   margin: 0;
@@ -309,5 +309,5 @@ menu separator {
 
 .power-glyph {
   color: $red;
-  font-size: 1.3rem;
+  font-size: 1.55rem;
 }

@@ -9,7 +9,8 @@ It also explicitly installs the XKB libraries required by Alacritty:
 The script does not install a display manager or modify the machine's network
 configuration. Chromium is installed as a native `.deb` package from the
 third-party [XtraDeb applications PPA](https://launchpad.net/~xtradeb/+archive/ubuntu/apps),
-so the setup does not install or use Snap/Snapd.
+including its required setuid sandbox package, so the setup does not install or
+use Snap/Snapd.
 
 ## Resource footprint
 
@@ -73,7 +74,7 @@ an Artix launcher button, an APT update count, bspwm workspaces, clock/date, hov
 brightness and PipeWire volume controls, RAM/root-disk/CPU usage, a simple
 always-visible system tray, and a power button. It deliberately excludes a dock, runcat, notification center,
 window list, and theme selector. The launcher opens the styled Rofi drun mode;
-the power button opens a simple unstyled Rofi menu. Feh applies the bundled
+the power button opens a styled, headerless four-row Rofi menu. Feh applies the bundled
 wallpaper whenever bspwm starts.
 
 GTK2 and GTK3 applications use the bundled `siduck-onedark` theme,

@@ -316,6 +316,7 @@ packages=(
   alacritty
   rofi
   chromium
+  chromium-sandbox
   dunst
   feh
   flameshot
@@ -326,6 +327,7 @@ packages=(
   pipewire-pulse
   wireplumber
   papirus-icon-theme
+  gtk-update-icon-cache
   bibata-cursor-theme
   gtk2-engines-murrine
   gtk2-engines-pixbuf
@@ -376,6 +378,7 @@ fi
 
 log "Installing bspwm and desktop applications..."
 apt-get install -y --no-install-recommends "${packages[@]}"
+gtk-update-icon-cache -f /usr/share/icons/Papirus-Dark >/dev/null 2>&1 || true
 install_neovim
 install_picom
 install_eww
