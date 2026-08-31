@@ -2,10 +2,9 @@
 
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, Chromium, Picom, Dunst, Eww, Zathura,
-Zsh, PipeWire, PipeWire Pulse, WirePlumber, and a configured wallpaper. It also
-explicitly installs the XKB
-libraries required by Alacritty: `libxkbcommon0`, `libxkbcommon-x11-0`, and
-`xkb-data`.
+Neovim, Zsh, PipeWire, PipeWire Pulse, WirePlumber, and a configured wallpaper.
+It also explicitly installs the XKB libraries required by Alacritty:
+`libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
 The script does not install a display manager or modify the machine's network
 configuration. Chromium is installed as a native `.deb` package from the
@@ -23,6 +22,12 @@ will use significantly more memory only while it is running.
 
 Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage.
+
+Neovim is pinned to v0.11.7 and installed from its official architecture-
+specific Linux tarball under `/opt/nvim-0.11.7`. Picom is pinned to the latest
+stable release available when this setup was updated, v13, and is built with
+the lightweight XRender feature set. Picom's temporary compiler packages and
+both projects' download/source directories are removed after installation.
 
 The session is X11-only: it starts directly through Xorg, forces X11-compatible
 application backends, and launches Chromium with `--ozone-platform=x11`. The
@@ -85,9 +90,7 @@ the target user's `~/.config` directory during installation:
 - `config/fonts/IosevkaNerdFont-Regular.ttf`: the single font weight required
   by the original Zsh prompt and Eww's Artix/power glyphs.
 - `config/picom/picom.conf`: basic shadows and rounded corners, plus one normal
-  window rule for open, close, and geometry animations.
-- `config/picom/picom-legacy.conf`: automatic fade-only fallback for Picom
-  versions older than 12, which do not support scripted animations.
+  window rule for open, close, and geometry animations on Picom v13.
 - `config/zathura/zathurarc`: the current dark, recolored PDF-viewer theme and
   zoom bindings.
 - `config/zsh/.zshrc`: a minimal colored path prompt with command duration and
@@ -104,3 +107,9 @@ Eww is not distributed as an Ubuntu package. If it is missing, the installer
 builds the official v0.6.0 source with X11-only support in `/tmp`, installs only
 the stripped binary, then removes packages that were added solely for the
 build. Rust, Cargo, and the source tree are not retained.
+
+Neovim v0.11.7 is installed from the official GitHub release tarball on amd64
+and arm64 after verifying its upstream SHA-256 digest. Picom v13 is compiled
+from the upstream release tag with XRender and animation support; unused
+OpenGL, D-Bus, regex, documentation, and Compton-compatibility build options
+are disabled.

@@ -5,6 +5,8 @@ set -Eeuo pipefail
 readonly SCRIPT_NAME="${0##*/}"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 eww_build_dir=''
+neovim_tmp_dir=''
+picom_build_dir=''
 
 log() {
   printf '\033[1;32m[%s]\033[0m %s\n' "$SCRIPT_NAME" "$*"
@@ -62,14 +64,38 @@ backup_directory() {
   fi
 }
 
-cleanup_eww_build() {
-  [[ -n $eww_build_dir ]] || return 0
-  [[ $eww_build_dir == /tmp/bspwm-eww.* ]] || return 0
-  rm -rf -- "$eww_build_dir"
-  eww_build_dir=''
+purge_new_build_packages() {
+  local build_dir=$1
+  local -a new_packages
+  [[ -r $build_dir/packages.before ]] || return 0
+
+  dpkg-query -W -f='${binary:Package}\n' | sort -u >"$build_dir/packages.cleanup"
+  mapfile -t new_packages < <(
+    comm -13 "$build_dir/packages.before" "$build_dir/packages.cleanup"
+  )
+  if ((${#new_packages[@]})) && ! apt-get purge -y "${new_packages[@]}"; then
+    warn "Could not remove every temporary build package."
+  fi
 }
 
-trap cleanup_eww_build EXIT
+cleanup_build_dirs() {
+  if [[ -n $eww_build_dir && $eww_build_dir == /tmp/bspwm-eww.* ]]; then
+    purge_new_build_packages "$eww_build_dir"
+    rm -rf -- "$eww_build_dir"
+    eww_build_dir=''
+  fi
+  if [[ -n $neovim_tmp_dir && $neovim_tmp_dir == /tmp/bspwm-neovim.* ]]; then
+    rm -rf -- "$neovim_tmp_dir"
+    neovim_tmp_dir=''
+  fi
+  if [[ -n $picom_build_dir && $picom_build_dir == /tmp/bspwm-picom.* ]]; then
+    purge_new_build_packages "$picom_build_dir"
+    rm -rf -- "$picom_build_dir"
+    picom_build_dir=''
+  fi
+}
+
+trap cleanup_build_dirs EXIT
 
 install_eww() {
   if command -v eww >/dev/null 2>&1; then
@@ -79,7 +105,6 @@ install_eww() {
 
   local cargo_home
   local rustup_home
-  local -a new_packages
   eww_build_dir=$(mktemp -d /tmp/bspwm-eww.XXXXXX)
   cargo_home="$eww_build_dir/cargo"
   rustup_home="$eww_build_dir/rustup"
@@ -114,14 +139,132 @@ install_eww() {
   strip "$eww_build_dir/source/target/release/eww"
   install -m 0755 "$eww_build_dir/source/target/release/eww" /usr/local/bin/eww
 
-  dpkg-query -W -f='${binary:Package}\n' | sort -u >"$eww_build_dir/packages.after"
-  mapfile -t new_packages < <(comm -13 "$eww_build_dir/packages.before" "$eww_build_dir/packages.after")
-  if ((${#new_packages[@]})); then
-    apt-get purge -y "${new_packages[@]}"
-  fi
+  purge_new_build_packages "$eww_build_dir"
 
   /usr/local/bin/eww --version
-  cleanup_eww_build
+  rm -rf -- "$eww_build_dir"
+  eww_build_dir=''
+}
+
+install_neovim() {
+  local version='0.11.7'
+  local asset_arch
+  local archive
+  local archive_root
+  local expected_sha256
+  local install_dir="/opt/nvim-$version"
+
+  if command -v nvim >/dev/null 2>&1 &&
+    [[ $(nvim --version | sed -n '1p') == "NVIM v$version" ]]; then
+    log "Using the existing Neovim $version installation: $(command -v nvim)"
+    return
+  fi
+
+  if [[ $(dpkg-query -W -f='${db:Status-Status}' neovim 2>/dev/null || true) == installed ]]; then
+    log "Removing the older Ubuntu Neovim package before installing v$version..."
+    apt-get purge -y neovim neovim-runtime
+  fi
+
+  case $(dpkg --print-architecture) in
+  amd64)
+    asset_arch='x86_64'
+    expected_sha256='38a7c6317f94503841096c00e8fde05ef04b9472fc9d7d62b6e033cecd6f7991'
+    ;;
+  arm64)
+    asset_arch='arm64'
+    expected_sha256='99bb3c53604e83ce18fc0b459e34cf1a5e212f4e5fbe2eb136b3c18092ae9905'
+    ;;
+  *) die "Neovim $version has no supported release tarball for $(dpkg --print-architecture)." ;;
+  esac
+
+  archive="nvim-linux-$asset_arch.tar.gz"
+  archive_root="nvim-linux-$asset_arch"
+  neovim_tmp_dir=$(mktemp -d /tmp/bspwm-neovim.XXXXXX)
+
+  log "Installing Neovim $version from the official Linux release..."
+  curl -fL --retry 3 \
+    "https://github.com/neovim/neovim/releases/download/v$version/$archive" \
+    -o "$neovim_tmp_dir/$archive"
+  printf '%s  %s\n' "$expected_sha256" "$neovim_tmp_dir/$archive" |
+    sha256sum --check --status - || die "Neovim release checksum verification failed."
+  tar -xzf "$neovim_tmp_dir/$archive" -C "$neovim_tmp_dir"
+  [[ -x "$neovim_tmp_dir/$archive_root/bin/nvim" ]] ||
+    die "The Neovim release archive did not contain the expected binary."
+
+  rm -rf -- "$install_dir.new"
+  cp -a -- "$neovim_tmp_dir/$archive_root" "$install_dir.new"
+  rm -rf -- "$install_dir"
+  mv -- "$install_dir.new" "$install_dir"
+  ln -sfn -- "$install_dir/bin/nvim" /usr/local/bin/nvim
+
+  [[ $(/usr/local/bin/nvim --version | sed -n '1p') == "NVIM v$version" ]] ||
+    die "Neovim $version verification failed."
+  rm -rf -- "$neovim_tmp_dir"
+  neovim_tmp_dir=''
+}
+
+install_picom() {
+  local version='13'
+
+  if command -v picom >/dev/null 2>&1 &&
+    [[ $(picom --version 2>/dev/null) == *"v$version"* ]]; then
+    log "Using the existing Picom v$version installation: $(command -v picom)"
+    return
+  fi
+
+  if [[ $(dpkg-query -W -f='${db:Status-Status}' picom 2>/dev/null || true) == installed ]]; then
+    log "Removing the older Ubuntu Picom package before building v$version..."
+    apt-get purge -y picom
+  fi
+
+  picom_build_dir=$(mktemp -d /tmp/bspwm-picom.XXXXXX)
+  log "Building Picom v$version with the lightweight XRender feature set..."
+  dpkg-query -W -f='${binary:Package}\n' | sort -u >"$picom_build_dir/packages.before"
+  apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    meson \
+    ninja-build \
+    pkg-config \
+    libconfig-dev \
+    libev-dev \
+    libpixman-1-dev \
+    libx11-xcb-dev \
+    libxcb1-dev \
+    libxcb-composite0-dev \
+    libxcb-damage0-dev \
+    libxcb-image0-dev \
+    libxcb-present-dev \
+    libxcb-randr0-dev \
+    libxcb-render0-dev \
+    libxcb-render-util0-dev \
+    libxcb-shape0-dev \
+    libxcb-util-dev \
+    libxcb-xfixes0-dev \
+    uthash-dev
+
+  git clone --depth 1 --branch "v$version" \
+    https://github.com/yshui/picom.git "$picom_build_dir/source"
+  git -C "$picom_build_dir/source" submodule update --init --recursive
+  meson setup "$picom_build_dir/source/build" "$picom_build_dir/source" \
+    --buildtype=release \
+    --prefix=/usr/local \
+    -Ddbus=false \
+    -Dopengl=false \
+    -Dregex=false \
+    -Dwith_docs=false \
+    -Dcompton=false
+  ninja -C "$picom_build_dir/source/build"
+  strip "$picom_build_dir/source/build/src/picom"
+  install -m 0755 "$picom_build_dir/source/build/src/picom" /usr/local/bin/picom
+
+  purge_new_build_packages "$picom_build_dir"
+
+  [[ $(/usr/local/bin/picom --version 2>/dev/null) == *"v$version"* ]] ||
+    die "Picom v$version verification failed."
+  rm -rf -- "$picom_build_dir"
+  picom_build_dir=''
 }
 
 target_user="${SUDO_USER:-}"
@@ -169,7 +312,6 @@ for required_config in \
   config/gtk-2.0/gtkrc \
   config/gtk-3.0/settings.ini \
   config/picom/picom.conf \
-  config/picom/picom-legacy.conf \
   config/wallpaper/bspwm-wallpaper.png \
   config/x11/Xresources \
   config/zathura/zathurarc \
@@ -188,7 +330,6 @@ packages=(
   alacritty
   rofi
   chromium
-  picom
   dunst
   feh
   zathura
@@ -228,16 +369,30 @@ Signed-By: /etc/apt/keyrings/xtradeb.asc
 EOF
 apt-get update
 
+# Keep Picom's small runtime libraries while purging its temporary compiler
+# toolchain after the source build. Ubuntu may use t64 package names.
+if apt-cache show libconfig9t64 2>/dev/null | grep -q '^Package: libconfig9t64$'; then
+  packages+=(libconfig9t64)
+elif apt-cache show libconfig9 2>/dev/null | grep -q '^Package: libconfig9$'; then
+  packages+=(libconfig9)
+else
+  die "Cannot find an Ubuntu libconfig runtime package required by Picom."
+fi
+if apt-cache show libev4t64 2>/dev/null | grep -q '^Package: libev4t64$'; then
+  packages+=(libev4t64)
+elif apt-cache show libev4 2>/dev/null | grep -q '^Package: libev4$'; then
+  packages+=(libev4)
+else
+  die "Cannot find an Ubuntu libev runtime package required by Picom."
+fi
+
 log "Installing bspwm and desktop applications..."
 apt-get install -y --no-install-recommends "${packages[@]}"
+install_neovim
+install_picom
 install_eww
 
 picom_config_source="$SCRIPT_DIR/config/picom/picom.conf"
-picom_major=$(picom --version | sed -nE 's/^[^0-9]*([0-9]+).*/\1/p' | head -n 1)
-if [[ ! $picom_major =~ ^[0-9]+$ ]] || ((picom_major < 12)); then
-  warn "Picom 12 or newer is required for scripted animations; using basic fading instead."
-  picom_config_source="$SCRIPT_DIR/config/picom/picom-legacy.conf"
-fi
 
 config_dir="$target_home/.config"
 bspwm_dir="$config_dir/bspwm"
