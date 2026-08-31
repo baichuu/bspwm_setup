@@ -131,7 +131,7 @@
                        :value cpu_usage :suffix ""))
       (box :class "bar-tray"
            :space-evenly false
-        (systray :icon-size 26
+        (systray :icon-size 30
                  :spacing 8
                  :prepend-new false))
       (button :class "power"
@@ -143,9 +143,9 @@
   :monitor "<primary>"
   :geometry (geometry
     :x "0%"
-    :y "5px"
-    :width "75%"
-    :height "60px"
+    :y "6px"
+    :width "84%"
+    :height "68px"
     :anchor "top center")
   :stacking "fg"
   :windowtype "dock"

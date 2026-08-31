@@ -64,23 +64,8 @@ backup_directory() {
   fi
 }
 
-purge_new_build_packages() {
-  local build_dir=$1
-  local -a new_packages
-  [[ -r $build_dir/packages.before ]] || return 0
-
-  dpkg-query -W -f='${binary:Package}\n' | sort -u >"$build_dir/packages.cleanup"
-  mapfile -t new_packages < <(
-    comm -13 "$build_dir/packages.before" "$build_dir/packages.cleanup"
-  )
-  if ((${#new_packages[@]})) && ! apt-get purge -y "${new_packages[@]}"; then
-    warn "Could not remove every temporary build package."
-  fi
-}
-
 cleanup_build_dirs() {
   if [[ -n $eww_build_dir && $eww_build_dir == /tmp/bspwm-eww.* ]]; then
-    purge_new_build_packages "$eww_build_dir"
     rm -rf -- "$eww_build_dir"
     eww_build_dir=''
   fi
@@ -89,7 +74,6 @@ cleanup_build_dirs() {
     neovim_tmp_dir=''
   fi
   if [[ -n $picom_build_dir && $picom_build_dir == /tmp/bspwm-picom.* ]]; then
-    purge_new_build_packages "$picom_build_dir"
     rm -rf -- "$picom_build_dir"
     picom_build_dir=''
   fi
@@ -110,7 +94,6 @@ install_eww() {
   rustup_home="$eww_build_dir/rustup"
 
   log "Building the X11-only Eww binary in a temporary directory..."
-  dpkg-query -W -f='${binary:Package}\n' | sort -u >"$eww_build_dir/packages.before"
   apt-get install -y --no-install-recommends \
     build-essential \
     git \
@@ -138,8 +121,6 @@ install_eww() {
     --features x11
   strip "$eww_build_dir/source/target/release/eww"
   install -m 0755 "$eww_build_dir/source/target/release/eww" /usr/local/bin/eww
-
-  purge_new_build_packages "$eww_build_dir"
 
   /usr/local/bin/eww --version
   rm -rf -- "$eww_build_dir"
@@ -219,7 +200,6 @@ install_picom() {
 
   picom_build_dir=$(mktemp -d /tmp/bspwm-picom.XXXXXX)
   log "Building Picom v$version with the lightweight XRender feature set..."
-  dpkg-query -W -f='${binary:Package}\n' | sort -u >"$picom_build_dir/packages.before"
   apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -260,8 +240,6 @@ install_picom() {
   strip "$picom_build_dir/source/build/src/picom"
   install -m 0755 "$picom_build_dir/source/build/src/picom" /usr/local/bin/picom
 
-  purge_new_build_packages "$picom_build_dir"
-
   [[ $(/usr/local/bin/picom --version 2>/dev/null) == *"v$version"* ]] ||
     die "Picom v$version verification failed."
   rm -rf -- "$picom_build_dir"
@@ -299,6 +277,7 @@ target_group=$(id -gn "$target_user")
 
 for required_config in \
   config/alacritty/alacritty.toml \
+  config/bspwm/bspwmrc \
   config/dunst/dunstrc \
   config/dunst/notification.png \
   config/eww/eww.scss \
@@ -314,6 +293,7 @@ for required_config in \
   config/gtk-2.0/gtkrc \
   config/gtk-3.0/settings.ini \
   config/picom/picom.conf \
+  config/sxhkd/sxhkdrc \
   config/wallpaper/bspwm-wallpaper.png \
   config/x11/Xresources \
   config/zathura/zathurarc \
@@ -373,8 +353,7 @@ Signed-By: /etc/apt/keyrings/xtradeb.asc
 EOF
 apt-get update
 
-# Keep Picom's small runtime libraries while purging its temporary compiler
-# toolchain after the source build. Ubuntu may use t64 package names.
+# Install Picom's runtime libraries explicitly. Ubuntu may use t64 package names.
 if apt-cache show libconfig9t64 2>/dev/null | grep -q '^Package: libconfig9t64$'; then
   packages+=(libconfig9t64)
 elif apt-cache show libconfig9 2>/dev/null | grep -q '^Package: libconfig9$'; then
@@ -412,6 +391,15 @@ wallpaper_dir="$target_home/.local/share/backgrounds"
 gtk_theme_dir="$target_home/.themes/siduck-onedark"
 font_dir="$target_home/.local/share/fonts/Iosevka"
 icon_font_dir="$target_home/.local/share/fonts/Icons"
+# These parent directories may not exist on Ubuntu Server minimal. Create them
+# with the target user's ownership; otherwise ~/.config itself remains owned by
+# root and applications such as Chromium cannot create their state directories.
+install -d -m 0755 -o "$target_user" -g "$target_group" \
+  "$config_dir" \
+  "$target_home/.local" \
+  "$target_home/.local/share" \
+  "$target_home/.local/share/fonts" \
+  "$target_home/.themes"
 mkdir -p \
   "$bspwm_dir" \
   "$sxhkd_dir" \
@@ -446,80 +434,8 @@ mkdir -p "$gtk_theme_dir"
 mkdir -p "$eww_dir"
 
 log "Writing the starter configuration for $target_user..."
-install -m 0755 /dev/stdin "$bspwm_dir/bspwmrc" <<'EOF'
-#!/bin/sh
-
-pgrep -u "$(id -u)" -x sxhkd >/dev/null || sxhkd &
-pgrep -u "$(id -u)" -x picom >/dev/null || picom &
-pgrep -u "$(id -u)" -x dunst >/dev/null || dunst &
-systemctl --user start pipewire.socket pipewire-pulse.socket wireplumber.service >/dev/null 2>&1 || true
-xsetroot -solid '#171717'
-xrdb -merge "$HOME/.Xresources"
-xsetroot -cursor_name left_ptr
-feh --no-fehbg --bg-fill "$HOME/.local/share/backgrounds/bspwm-wallpaper.png" &
-
-bspc monitor -d 1 2 3
-bspc config border_width 2
-bspc config window_gap 8
-bspc config split_ratio 0.52
-bspc config borderless_monocle true
-bspc config gapless_monocle true
-bspc config normal_border_color '#242424'
-bspc config active_border_color '#888888'
-bspc config focused_border_color '#76bef9'
-bspc config presel_feedback_color '#c993ef'
-
-eww daemon >/dev/null 2>&1
-eww open bar-window >/dev/null 2>&1 || true
-EOF
-
-install -m 0644 /dev/stdin "$sxhkd_dir/sxhkdrc" <<'EOF'
-# Applications
-super + Return
-    alacritty
-
-super + space
-    rofi -show drun
-
-super + b
-    chromium --ozone-platform=x11
-
-# Window manager
-super + shift + r
-    eww reload >/dev/null 2>&1; pkill -USR1 -u "$(id -u)" -x sxhkd; bspc wm -r
-
-super + q
-    bspc node -c
-
-super + {h,j,k,l}
-    bspc node -f {west,south,north,east}
-
-super + shift + {h,j,k,l}
-    bspc node -s {west,south,north,east}
-
-super + {1-3}
-    bspc desktop -f '^{1-3}'
-
-super + shift + {1-3}
-    bspc node -d '^{1-3}'
-
-# PipeWire audio and backlight
-XF86AudioRaiseVolume
-    wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
-
-XF86AudioLowerVolume
-    wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-
-XF86AudioMute
-    wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-
-XF86MonBrightnessUp
-    ~/.config/eww/scripts/brightness-control up
-
-XF86MonBrightnessDown
-    ~/.config/eww/scripts/brightness-control down
-EOF
-
+install -m 0755 "$SCRIPT_DIR/config/bspwm/bspwmrc" "$bspwm_dir/bspwmrc"
+install -m 0644 "$SCRIPT_DIR/config/sxhkd/sxhkdrc" "$sxhkd_dir/sxhkdrc"
 install -m 0644 \
   "$SCRIPT_DIR/config/alacritty/alacritty.toml" \
   "$alacritty_dir/alacritty.toml"
@@ -554,6 +470,7 @@ export XDG_SESSION_TYPE=x11
 export GDK_BACKEND=x11
 export QT_QPA_PLATFORM=xcb
 export WINIT_UNIX_BACKEND=x11
+export SHELL=/usr/bin/zsh
 export GTK_THEME=siduck-onedark
 export XCURSOR_THEME=Bibata-Modern-Ice
 export XCURSOR_SIZE=24

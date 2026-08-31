@@ -26,8 +26,9 @@ sizes, but they do not add background services or ongoing memory usage.
 Neovim is pinned to v0.11.7 and installed from its official architecture-
 specific Linux tarball under `/opt/nvim-0.11.7`. Picom is pinned to the latest
 stable release available when this setup was updated, v13, and is built with
-the lightweight XRender feature set. Picom's temporary compiler packages and
-both projects' download/source directories are removed after installation.
+the lightweight XRender feature set. Build dependencies are retained so later
+source rebuilds do not need to download them again; temporary source and
+download directories are removed.
 
 The session is X11-only: it starts directly through Xorg, forces X11-compatible
 application backends, and launches Chromium with `--ozone-platform=x11`. The
@@ -40,9 +41,10 @@ chmod +x install-bspwm.sh
 sudo ./install-bspwm.sh
 ```
 
-After installation, log in as a regular user on a TTY and run `startx`.
-Zsh is set as that user's login shell with the same path-and-command-duration
-prompt used on the source workstation.
+After installation, log out once, log in as a regular user on a TTY, and run
+`startx`. The fresh login applies Zsh as that user's login shell with the same
+path-and-command-duration prompt used on the source workstation. `Super +
+Enter` also starts Alacritty directly in a Zsh login shell.
 
 By default, the script configures the user who invoked `sudo`. If you are
 logged in as root, specify a regular user explicitly:
@@ -82,6 +84,8 @@ the target user's `~/.config` directory during installation:
 
 - `config/alacritty/alacritty.toml`: X11 terminal settings and a dark color
   palette based on the current workstation configuration.
+- `config/bspwm/bspwmrc`: bspwm startup, three workspaces, borders, gaps, and
+  top padding reserved for the Eww bar.
 - `config/dunst/dunstrc`: compact top-center notifications using the same
   muted color palette and one bundled default icon without a randomizer script.
 - `config/dunst/notification.png`: the default image used for notifications.
@@ -91,8 +95,10 @@ the target user's `~/.config` directory during installation:
   by the original Zsh prompt and Eww's Artix/power glyphs.
 - `config/fonts/feather.ttf`: the small icon font used by Eww's update, disk,
   and memory indicators.
-- `config/picom/picom.conf`: basic shadows and rounded corners, plus one normal
+- `config/picom/picom.conf`: basic shadows without corner clipping, plus one normal
   window rule for open, close, and geometry animations on Picom v13.
+- `config/sxhkd/sxhkdrc`: application, bspwm, audio, brightness, and reload
+  keybindings.
 - `config/zathura/zathurarc`: the current dark, recolored PDF-viewer theme and
   zoom bindings.
 - `config/zsh/.zshrc`: a minimal colored path prompt with command duration and
@@ -106,10 +112,10 @@ the target user's `~/.config` directory during installation:
   the source workstation.
 
 Eww is not distributed as an Ubuntu package. If it is missing, the installer
-builds the official v0.6.0 source with X11-only support in `/tmp`, installs only
-the stripped binary, then removes packages that were added solely for the
-build. The temporary Rust toolchain is pinned to v1.77.2 for compatibility with
-Eww's locked dependencies. Rust, Cargo, and the source tree are not retained.
+builds the official v0.6.0 source with X11-only support in `/tmp` and installs
+the stripped binary. The temporary Rust toolchain is pinned to v1.77.2 for
+compatibility with Eww's locked dependencies. Build packages are retained, but
+the temporary Rust toolchain, Cargo cache, and source tree are removed.
 
 Neovim v0.11.7 is installed from the official GitHub release tarball on amd64
 and arm64 after verifying its upstream SHA-256 digest. Picom v13 is compiled

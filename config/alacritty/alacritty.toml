@@ -1,9 +1,12 @@
-[general]
 live_config_reload = true
 
 [env]
-TERM = "alacritty"
+TERM = "xterm-256color"
 WINIT_X11_SCALE_FACTOR = "1.0"
+
+[shell]
+program = "/usr/bin/zsh"
+args = ["-l"]
 
 [window]
 padding = { x = 6, y = 6 }
@@ -14,7 +17,7 @@ history = 10000
 multiplier = 3
 
 [font]
-size = 12
+size = 14
 builtin_box_drawing = true
 
 [font.normal]
