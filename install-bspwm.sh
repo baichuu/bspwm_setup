@@ -23,6 +23,10 @@ die() {
   exit 1
 }
 
+[[ -r $SCRIPT_DIR/lib/config-links.sh ]] || die 'Missing shared config manifest: lib/config-links.sh'
+# shellcheck source=lib/config-links.sh
+source "$SCRIPT_DIR/lib/config-links.sh"
+
 usage() {
   cat <<EOF
 Usage: sudo ./$SCRIPT_NAME [--user USER]
@@ -112,32 +116,6 @@ setup_swap() {
   total_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
   ((total_kib >= target_kib)) || die 'Swap activation completed but total swap is still below 8 GiB.'
   log "Swap ready: $((total_kib / 1024)) MiB total, vm.swappiness=20."
-}
-
-link_repo_config() {
-  local source=$1
-  local target=$2
-  local link_owner=${3:-$target_user:$target_group}
-  local backup
-
-  [[ -e $source || -L $source ]] || die "Configuration source does not exist: $source"
-  mkdir -p -- "$(dirname -- "$target")"
-
-  if [[ -L $target && $(readlink -- "$target") == "$source" ]]; then
-    return
-  fi
-
-  if [[ -e $target || -L $target ]]; then
-    backup="$target.bak.$(date +%Y%m%d-%H%M%S)"
-    while [[ -e $backup || -L $backup ]]; do
-      backup="$backup.1"
-    done
-    mv -- "$target" "$backup"
-    warn "Moved existing configuration to: $backup"
-  fi
-
-  ln -s -- "$source" "$target"
-  chown -h "$link_owner" "$target"
 }
 
 cleanup_build_dirs() {
@@ -414,44 +392,7 @@ target_home=$(getent passwd "$target_user" | cut -d: -f6)
 target_group=$(id -gn "$target_user")
 [[ -d $target_home ]] || die "Home directory does not exist: $target_home"
 
-for required_config in \
-  config/alacritty/alacritty.toml \
-  config/bspwm/bspwmrc \
-  config/dunst/dunstrc \
-  config/dunst/notification.png \
-  config/flameshot/flameshot.ini \
-  config/greenclip/greenclip.toml \
-  config/eww/eww.scss \
-  config/eww/eww.yuck \
-  config/eww/scripts/cpu \
-  config/eww/scripts/brightness-control \
-  config/eww/scripts/memory \
-  config/eww/scripts/powermenu \
-  config/eww/scripts/screenshot \
-  config/eww/scripts/updates \
-  config/eww/scripts/volume-status \
-  config/fontconfig/50-inter-ui.conf \
-  config/fonts/feather.ttf \
-  config/fonts/IosevkaNerdFont-Regular.ttf \
-  config/gtk-2.0/gtkrc \
-  config/gtk-3.0/settings.ini \
-  config/npm/npmrc \
-  config/picom/picom.conf \
-  config/rofi/launcher.rasi \
-  config/rofi/clipboard.rasi \
-  config/rofi/powermenu.rasi \
-  config/rofi/screenshot.rasi \
-  config/sxhkd/sxhkdrc \
-  config/system/99-bspwm-setup-swap.conf \
-  config/wallpaper/bspwm-wallpaper.png \
-  config/x11/90-touchpad-tapping.conf \
-  config/x11/Xresources \
-  config/x11/xinitrc \
-  config/zathura/zathurarc \
-  config/zsh/.zshrc \
-  config/gtk-theme/siduck-onedark/index.theme; do
-  [[ -r "$SCRIPT_DIR/$required_config" ]] || die "Missing configuration file: $required_config"
-done
+validate_desktop_config_sources
 
 packages=(
   xserver-xorg
@@ -550,63 +491,10 @@ install_neovim
 install_picom
 install_eww
 
-config_dir="$target_home/.config"
-fontconfig_dir="$config_dir/fontconfig/conf.d"
-wallpaper_dir="$target_home/.local/share/backgrounds"
 font_dir="$target_home/.local/share/fonts/Iosevka"
 icon_font_dir="$target_home/.local/share/fonts/Icons"
-# These parent directories may not exist on Ubuntu Server minimal. Create them
-# with the target user's ownership; otherwise ~/.config itself remains owned by
-# root and applications such as Chromium cannot create their state directories.
-install -d -m 0755 -o "$target_user" -g "$target_group" \
-  "$config_dir" \
-  "$target_home/.local" \
-  "$target_home/.local/share" \
-  "$target_home/.local/share/fonts" \
-  "$target_home/.cache" \
-  "$target_home/.cache/npm" \
-  "$target_home/.npm-global" \
-  "$target_home/.npm-global/bin" \
-  "$target_home/Pictures" \
-  "$target_home/Pictures/Screenshots" \
-  "$target_home/.themes"
-install -d -m 0755 -o "$target_user" -g "$target_group" \
-  "$fontconfig_dir" \
-  "$wallpaper_dir" \
-  "$font_dir" \
-  "$icon_font_dir"
-install -d -m 0755 /etc/X11/xorg.conf.d
-
 log "Linking the starter configuration from the repository for $target_user..."
-link_repo_config \
-  "$SCRIPT_DIR/config/x11/90-touchpad-tapping.conf" \
-  /etc/X11/xorg.conf.d/90-touchpad-tapping.conf \
-  root:root
-link_repo_config "$SCRIPT_DIR/config/bspwm" "$config_dir/bspwm"
-link_repo_config "$SCRIPT_DIR/config/sxhkd" "$config_dir/sxhkd"
-link_repo_config "$SCRIPT_DIR/config/alacritty" "$config_dir/alacritty"
-link_repo_config "$SCRIPT_DIR/config/dunst" "$config_dir/dunst"
-link_repo_config "$SCRIPT_DIR/config/flameshot" "$config_dir/flameshot"
-link_repo_config "$SCRIPT_DIR/config/greenclip/greenclip.toml" "$config_dir/greenclip.toml"
-link_repo_config "$SCRIPT_DIR/config/picom" "$config_dir/picom"
-link_repo_config "$SCRIPT_DIR/config/rofi" "$config_dir/rofi"
-link_repo_config "$SCRIPT_DIR/config/eww" "$config_dir/eww"
-link_repo_config "$SCRIPT_DIR/config/zathura" "$config_dir/zathura"
-link_repo_config "$SCRIPT_DIR/config/gtk-3.0" "$config_dir/gtk-3.0"
-link_repo_config "$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf" "$fontconfig_dir/50-inter-ui.conf"
-link_repo_config "$SCRIPT_DIR/config/gtk-2.0/gtkrc" "$target_home/.gtkrc-2.0"
-link_repo_config "$SCRIPT_DIR/config/npm/npmrc" "$target_home/.npmrc"
-link_repo_config "$SCRIPT_DIR/config/zsh/.zshrc" "$target_home/.zshrc"
-link_repo_config "$SCRIPT_DIR/config/x11/Xresources" "$target_home/.Xresources"
-link_repo_config "$SCRIPT_DIR/config/x11/xinitrc" "$target_home/.xinitrc"
-link_repo_config "$SCRIPT_DIR/config/wallpaper/bspwm-wallpaper.png" "$wallpaper_dir/bspwm-wallpaper.png"
-link_repo_config "$SCRIPT_DIR/config/gtk-theme/siduck-onedark" "$target_home/.themes/siduck-onedark"
-link_repo_config "$SCRIPT_DIR/config/fonts/IosevkaNerdFont-Regular.ttf" "$font_dir/IosevkaNerdFont-Regular.ttf"
-link_repo_config "$SCRIPT_DIR/config/fonts/feather.ttf" "$icon_font_dir/feather.ttf"
-
-chown -R "$target_user:$target_group" \
-  "$target_home/.cache/npm" \
-  "$target_home/.npm-global"
+install_desktop_config_links
 
 runuser -u "$target_user" -- fc-cache -f "$font_dir" "$icon_font_dir"
 

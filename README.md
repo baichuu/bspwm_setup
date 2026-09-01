@@ -165,6 +165,58 @@ rclone listremotes
 swapon --show
 ```
 
+## Applying and checking later patches
+
+The desktop link manifest and source-file validation live in
+`lib/config-links.sh`. Both the full installer and the maintenance tools use
+this single manifest, so adding or moving a configuration target only needs to
+be recorded once.
+
+After pulling or editing a patch, first run the read-only source check:
+
+```bash
+./check-setup.sh --sources-only
+```
+
+On an installed machine, run the complete health check to verify every
+symlink, required command, pinned Eza/Neovim/Picom versions, swap capacity,
+and the optional Vivado/OpenEye artifacts:
+
+```bash
+./check-setup.sh
+```
+
+If a patch adds a new link or an existing link was replaced, reapply only the
+configuration layer:
+
+```bash
+sudo ./apply-config.sh
+```
+
+This command does not run APT, compile software, configure swap, or touch the
+Vivado/OpenEye installations. It preserves any unexpected destination as a
+timestamped backup before recreating the link. Press `Super + Shift + R` to
+reload Eww, sxhkd, and bspwm. Restart individual applications for their own
+configuration changes, and restart the entire Xorg session after modifying
+the touchpad InputClass file.
+
+Before committing a maintenance patch, use:
+
+```bash
+bash -n install-bspwm.sh install-vivado.sh install-openeye.sh \
+  apply-config.sh check-setup.sh lib/config-links.sh
+git diff --check
+./check-setup.sh --sources-only
+```
+
+`--sources-only` already performs the shell syntax and Git whitespace checks;
+the expanded commands above are included so a failure can be reproduced
+directly.
+
+Use `--config-only` instead when checking symlinks on an installed machine
+without checking packages, running processes, versions, swap, Vivado, or
+OpenEye.
+
 ## Keybindings
 
 - `Super + Enter`: open Alacritty.
@@ -261,6 +313,10 @@ the target user's `~/.config` directory during installation:
 - `config/gtk-theme/siduck-onedark`: only the GTK2/GTK3 theme components needed
   by this setup; unrelated desktop-shell assets are excluded.
 - `config/x11/Xresources`: applies the Bibata cursor to the X11 root window.
+- `config/x11/90-touchpad-tapping.conf`: enables libinput tap-to-click with
+  left/right/middle one-, two-, and three-finger tap mapping.
+- `config/x11/xinitrc`: starts the X11-only bspwm session and exports its GTK,
+  Qt, cursor, and shell environment.
 - `config/wallpaper/bspwm-wallpaper.png`: the wallpaper currently selected on
   the source workstation.
 
