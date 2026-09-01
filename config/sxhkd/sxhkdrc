@@ -11,6 +11,9 @@ super + s
 super + p
     ~/.config/eww/scripts/powermenu
 
+super + v
+    rofi -modi "clipboard:greenclip print" -show clipboard -run-command '{cmd}' -theme ~/.config/rofi/clipboard.rasi
+
 super + b
     chromium --ozone-platform=x11
 

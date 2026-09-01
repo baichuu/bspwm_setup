@@ -2,7 +2,8 @@
 
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, Chromium, Picom, Dunst, Eww, Zathura,
-Flameshot, Neovim, Zsh, PipeWire, PipeWire Pulse, WirePlumber, and a configured wallpaper.
+Flameshot, Greenclip, Xclip, Neovim, Zsh, PipeWire, PipeWire Pulse,
+WirePlumber, and a configured wallpaper.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
@@ -61,6 +62,7 @@ sudo ./install-bspwm.sh --user username
 - `Super + B`: open Chromium.
 - `Super + S`: open the four-action Flameshot screenshot menu.
 - `Super + P`: open the styled power menu.
+- `Super + V`: search the Greenclip clipboard history with Rofi.
 - `Super + Q`: close the focused window.
 - `Super + H/J/K/L`: move window focus.
 - `Super + Shift + H/J/K/L`: swap the focused window.
@@ -77,6 +79,11 @@ window list, and theme selector. The launcher opens the styled Rofi drun mode;
 the power button opens a styled, headerless four-row Rofi menu. Feh applies the bundled
 wallpaper whenever bspwm starts.
 
+Greenclip v4.2 starts automatically and stores at most 50 clipboard entries.
+Its text and small-image history uses the source workstation configuration;
+Xclip is installed for X11 clipboard interoperability. The Greenclip process
+and its static binary have a small resource footprint.
+
 GTK2 and GTK3 applications use the bundled `siduck-onedark` theme,
 `Papirus-Dark` icons, and the `Bibata-Modern-Ice` cursor at 24 px.
 
@@ -88,10 +95,14 @@ the target user's `~/.config` directory during installation:
 - `config/alacritty/alacritty.toml`: X11 terminal settings and a dark color
   palette based on the current workstation configuration.
 - `config/bspwm/bspwmrc`: bspwm startup, three workspaces, borders, gaps, and
-  top padding reserved for the Eww bar.
+  bottom padding reserved for the Eww bar.
 - `config/dunst/dunstrc`: compact top-center notifications using the same
   muted color palette and one bundled default icon without a randomizer script.
 - `config/dunst/notification.png`: the default image used for notifications.
+- `config/flameshot/flameshot.ini`: the source workstation's Flameshot toolbar,
+  colors, PNG output, and screenshot-directory settings.
+- `config/greenclip/greenclip.toml`: persistent text and image history limited
+  to 50 clipboard entries.
 - `config/eww`: a minimal Espresso-themed bar with an APT update counter,
   CPU/memory helpers, a Rofi power menu, and brightness/PipeWire controls.
 - `config/fonts/IosevkaNerdFont-Regular.ttf`: the single font weight required
@@ -102,6 +113,7 @@ the target user's `~/.config` directory during installation:
   window rule for open, close, and geometry animations on Picom v13.
 - `config/rofi/launcher.rasi`: rounded Espresso application launcher based on
   the source workstation, with Papirus icons and only one red close glyph.
+- `config/rofi/clipboard.rasi`: matching single-column Greenclip history menu.
 - `config/rofi/screenshot.rasi` and `config/rofi/powermenu.rasi`: matching
   screenshot and headerless power menus.
 - `config/sxhkd/sxhkdrc`: application, bspwm, audio, brightness, and reload
@@ -134,18 +146,44 @@ are disabled.
 
 Vivado and OpenEye are intentionally separate from the desktop installation.
 For license-free synthesis and implementation reports, download the official
-Vivado ML Standard 2025.2 Linux web installer, then run:
+Vivado ML Standard 2025.2 Linux web installer as follows:
+
+1. Open the [AMD Vivado 2025.2 download page](https://www.amd.com/en/support/downloads/adaptive-socs-and-fpgas/development-tools/2025-2.html).
+2. Confirm that the version selector at the top of the page shows `2025.2`.
+3. Expand **Unified Installer for FPGA & Adaptive SoC Tools - 2025.2**.
+4. Find **AMD Unified Installer for FPGAs & Adaptive SoCs 2025.2: Linux
+   Self Extracting Web Installer**. It is the `BIN` download of approximately
+   346.7 MB.
+5. Click the blue Linux installer title and sign in to an AMD account when
+   requested. Complete any AMD download or export-compliance form, then save
+   the file in `~/Downloads`.
+6. Do not download the Windows `EXE` or the approximately 95.68 GB `SFD`
+   archive. The small Linux web installer downloads only the selected Vivado
+   components and is much more suitable for a 256 GB SSD.
+
+The downloaded filename should resemble
+`FPGAs_AdaptiveSoCs_Unified_2025.2_..._Lin64.bin`. From this repository, run:
 
 ```bash
 ./install-vivado.sh ~/Downloads/FPGAs_AdaptiveSoCs_Unified_2025.2_*_Lin64.bin
 ```
 
-Run the script as the regular X11 user, not with `sudo`. The AMD installer is
-interactive because downloading requires an AMD account and the user must
-accept the license agreements. Select only Vivado ML Standard and the Zynq
-UltraScale+ MPSoC device family. Standard 2025.2 does not require a FLEX license
-and supports XCZU1 through XCZU7 devices, but not the ZU19EG used by the OpenEye
-paper. The script creates an `AMD Vivado 2025.2` desktop entry for Rofi.
+Run the script as the regular X11 user from an Alacritty terminal, not with
+`sudo`. Enter the sudo password only when the script installs Ubuntu libraries.
+In the AMD installer select **Download and Install Now**, **Vivado**, and
+**Vivado ML Standard Edition 2025.2**. Select only the **Zynq UltraScale+ MPSoC**
+device family; leave Vitis, PetaLinux, Model Composer, and DocNav unselected.
+Use an installation path without spaces, preferably `~/AMD`.
+
+Standard 2025.2 does not require a FLEX license and supports XCZU1 through
+XCZU7 devices, but not the ZU19EG used by the OpenEye paper. After installation,
+the script creates an `AMD Vivado 2025.2` desktop entry for Rofi. It can also be
+started from a terminal with:
+
+```bash
+source ~/.config/vivado/settings64.sh
+vivado
+```
 
 Install the pinned OpenEye RTL and Python environment separately:
 

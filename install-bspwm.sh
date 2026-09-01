@@ -7,6 +7,7 @@ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 eww_build_dir=''
 neovim_tmp_dir=''
 picom_build_dir=''
+greenclip_tmp_file=''
 
 log() {
   printf '\033[1;32m[%s]\033[0m %s\n' "$SCRIPT_NAME" "$*"
@@ -77,9 +78,38 @@ cleanup_build_dirs() {
     rm -rf -- "$picom_build_dir"
     picom_build_dir=''
   fi
+  if [[ -n $greenclip_tmp_file && $greenclip_tmp_file == /tmp/bspwm-greenclip.* ]]; then
+    rm -f -- "$greenclip_tmp_file"
+    greenclip_tmp_file=''
+  fi
 }
 
 trap cleanup_build_dirs EXIT
+
+install_greenclip() {
+  local version='4.2'
+  local expected_sha256='80b189fc9ce2e0a56e33be642875f5c3fb53647465f8024a541621307a6a290f'
+
+  if command -v greenclip >/dev/null 2>&1 &&
+    [[ $(greenclip --help 2>&1 | sed -n '1p') == "greenclip v$version "* ]]; then
+    log "Using the existing Greenclip v$version installation: $(command -v greenclip)"
+    return
+  fi
+
+  [[ $(dpkg --print-architecture) == amd64 ]] ||
+    die "The official Greenclip v$version static binary is available only for amd64."
+
+  greenclip_tmp_file=$(mktemp /tmp/bspwm-greenclip.XXXXXX)
+  log "Installing Greenclip v$version from its official static release..."
+  curl -fL --retry 3 \
+    "https://github.com/erebe/greenclip/releases/download/v$version/greenclip" \
+    -o "$greenclip_tmp_file"
+  printf '%s  %s\n' "$expected_sha256" "$greenclip_tmp_file" |
+    sha256sum --check --status - || die "Greenclip v$version checksum verification failed."
+  install -m 0755 "$greenclip_tmp_file" /usr/local/bin/greenclip
+  rm -f -- "$greenclip_tmp_file"
+  greenclip_tmp_file=''
+}
 
 install_eww() {
   if command -v eww >/dev/null 2>&1; then
@@ -280,6 +310,8 @@ for required_config in \
   config/bspwm/bspwmrc \
   config/dunst/dunstrc \
   config/dunst/notification.png \
+  config/flameshot/flameshot.ini \
+  config/greenclip/greenclip.toml \
   config/eww/eww.scss \
   config/eww/eww.yuck \
   config/eww/scripts/cpu \
@@ -295,6 +327,7 @@ for required_config in \
   config/gtk-3.0/settings.ini \
   config/picom/picom.conf \
   config/rofi/launcher.rasi \
+  config/rofi/clipboard.rasi \
   config/rofi/powermenu.rasi \
   config/rofi/screenshot.rasi \
   config/sxhkd/sxhkdrc \
@@ -320,6 +353,7 @@ packages=(
   dunst
   feh
   flameshot
+  xclip
   zathura
   zathura-pdf-poppler
   zsh
@@ -379,6 +413,7 @@ fi
 log "Installing bspwm and desktop applications..."
 apt-get install -y --no-install-recommends "${packages[@]}"
 gtk-update-icon-cache -f /usr/share/icons/Papirus-Dark >/dev/null 2>&1 || true
+install_greenclip
 install_neovim
 install_picom
 install_eww
@@ -391,6 +426,7 @@ sxhkd_dir="$config_dir/sxhkd"
 alacritty_dir="$config_dir/alacritty"
 dunst_dir="$config_dir/dunst"
 dunst_icon_dir="$dunst_dir/icons"
+flameshot_dir="$config_dir/flameshot"
 picom_dir="$config_dir/picom"
 rofi_dir="$config_dir/rofi"
 eww_dir="$config_dir/eww"
@@ -408,6 +444,9 @@ install -d -m 0755 -o "$target_user" -g "$target_group" \
   "$target_home/.local" \
   "$target_home/.local/share" \
   "$target_home/.local/share/fonts" \
+  "$target_home/.cache" \
+  "$target_home/Pictures" \
+  "$target_home/Pictures/Screenshots" \
   "$target_home/.themes"
 mkdir -p \
   "$bspwm_dir" \
@@ -415,6 +454,7 @@ mkdir -p \
   "$alacritty_dir" \
   "$dunst_dir" \
   "$dunst_icon_dir" \
+  "$flameshot_dir" \
   "$picom_dir" \
   "$rofi_dir" \
   "$zathura_dir" \
@@ -428,8 +468,11 @@ backup_file "$sxhkd_dir/sxhkdrc"
 backup_file "$alacritty_dir/alacritty.toml"
 backup_file "$dunst_dir/dunstrc"
 backup_file "$dunst_icon_dir/notification.png"
+backup_file "$flameshot_dir/flameshot.ini"
+backup_file "$config_dir/greenclip.toml"
 backup_file "$picom_dir/picom.conf"
 backup_file "$rofi_dir/launcher.rasi"
+backup_file "$rofi_dir/clipboard.rasi"
 backup_file "$rofi_dir/powermenu.rasi"
 backup_file "$rofi_dir/screenshot.rasi"
 backup_file "$zathura_dir/zathurarc"
@@ -456,8 +499,15 @@ install -m 0644 "$SCRIPT_DIR/config/dunst/dunstrc" "$dunst_dir/dunstrc"
 install -m 0644 \
   "$SCRIPT_DIR/config/dunst/notification.png" \
   "$dunst_icon_dir/notification.png"
+sed "s|@HOME@|$target_home|g" \
+  "$SCRIPT_DIR/config/flameshot/flameshot.ini" >"$flameshot_dir/flameshot.ini"
+chmod 0644 "$flameshot_dir/flameshot.ini"
+sed "s|@HOME@|$target_home|g" \
+  "$SCRIPT_DIR/config/greenclip/greenclip.toml" >"$config_dir/greenclip.toml"
+chmod 0644 "$config_dir/greenclip.toml"
 install -m 0644 "$picom_config_source" "$picom_dir/picom.conf"
 install -m 0644 "$SCRIPT_DIR/config/rofi/launcher.rasi" "$rofi_dir/launcher.rasi"
+install -m 0644 "$SCRIPT_DIR/config/rofi/clipboard.rasi" "$rofi_dir/clipboard.rasi"
 install -m 0644 "$SCRIPT_DIR/config/rofi/powermenu.rasi" "$rofi_dir/powermenu.rasi"
 install -m 0644 "$SCRIPT_DIR/config/rofi/screenshot.rasi" "$rofi_dir/screenshot.rasi"
 install -m 0644 "$SCRIPT_DIR/config/zathura/zathurarc" "$zathura_dir/zathurarc"
@@ -502,8 +552,11 @@ cp -a -- "$dunst_dir/dunstrc" "$dunst_dir/dunstrc.bspwm-setup"
 cp -a -- \
   "$dunst_icon_dir/notification.png" \
   "$dunst_icon_dir/notification.png.bspwm-setup"
+cp -a -- "$flameshot_dir/flameshot.ini" "$flameshot_dir/flameshot.ini.bspwm-setup"
+cp -a -- "$config_dir/greenclip.toml" "$config_dir/greenclip.toml.bspwm-setup"
 cp -a -- "$picom_dir/picom.conf" "$picom_dir/picom.conf.bspwm-setup"
 cp -a -- "$rofi_dir/launcher.rasi" "$rofi_dir/launcher.rasi.bspwm-setup"
+cp -a -- "$rofi_dir/clipboard.rasi" "$rofi_dir/clipboard.rasi.bspwm-setup"
 cp -a -- "$rofi_dir/powermenu.rasi" "$rofi_dir/powermenu.rasi.bspwm-setup"
 cp -a -- "$rofi_dir/screenshot.rasi" "$rofi_dir/screenshot.rasi.bspwm-setup"
 cp -a -- "$zathura_dir/zathurarc" "$zathura_dir/zathurarc.bspwm-setup"
@@ -527,6 +580,7 @@ chown -R "$target_user:$target_group" \
   "$sxhkd_dir" \
   "$alacritty_dir" \
   "$dunst_dir" \
+  "$flameshot_dir" \
   "$picom_dir" \
   "$rofi_dir" \
   "$eww_dir" \
@@ -536,6 +590,9 @@ chown -R "$target_user:$target_group" \
   "$gtk_theme_dir" \
   "$font_dir" \
   "$icon_font_dir"
+chown "$target_user:$target_group" \
+  "$config_dir/greenclip.toml" \
+  "$config_dir/greenclip.toml.bspwm-setup"
 chown "$target_user:$target_group" \
   "$target_home/.gtkrc-2.0" \
   "$target_home/.gtkrc-2.0.bspwm-setup" \

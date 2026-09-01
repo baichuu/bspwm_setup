@@ -146,7 +146,7 @@
     :y "6px"
     :width "84%"
     :height "76px"
-    :anchor "top center")
+    :anchor "bottom center")
   :stacking "fg"
   :windowtype "dock"
   :wm-ignore true
