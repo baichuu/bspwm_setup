@@ -15,6 +15,68 @@ die() {
   exit 1
 }
 
+get_vivado_version() {
+  local version=''
+
+  if [[ -x $HOME/.local/bin/vivado-2025.2 ]]; then
+    version=$("$HOME/.local/bin/vivado-2025.2" -version 2>/dev/null | sed -n '1p' || true)
+  elif command -v vivado >/dev/null 2>&1; then
+    version=$(vivado -version 2>/dev/null | sed -n '1p' || true)
+  elif [[ -r $HOME/.config/vivado/settings64.sh ]]; then
+    version=$(
+      # shellcheck disable=SC1091
+      source "$HOME/.config/vivado/settings64.sh"
+      vivado -version 2>/dev/null | sed -n '1p'
+    ) || true
+  fi
+
+  printf '%s\n' "${version:-not installed}"
+}
+
+exclude_local_artifacts() {
+  local exclude_file="$install_dir/.git/info/exclude"
+  local artifact
+
+  for artifact in /environment.json /requirements.lock.txt; do
+    grep -Fxq "$artifact" "$exclude_file" 2>/dev/null ||
+      printf '%s\n' "$artifact" >>"$exclude_file"
+  done
+}
+
+write_environment_manifest() {
+  local manifest="$install_dir/environment.json"
+  local python_version
+  local iverilog_version
+  local verilator_version
+  local vivado_version
+
+  python_version=$("$install_dir/.venv/bin/python" --version 2>&1)
+  iverilog_version=$(iverilog -V 2>&1 | sed -n '1p')
+  verilator_version=$(verilator --version 2>&1 | sed -n '1p')
+  vivado_version=$(get_vivado_version)
+
+  jq -n \
+    --arg generated_at "$(date --iso-8601=seconds)" \
+    --arg os "${PRETTY_NAME:-Ubuntu}" \
+    --arg kernel "$(uname -srmo)" \
+    --arg python "$python_version" \
+    --arg python_executable "$install_dir/.venv/bin/python" \
+    --arg simulator "$iverilog_version" \
+    --arg verilator "$verilator_version" \
+    --arg openeye_repository "$OPENEYE_REPOSITORY" \
+    --arg openeye_commit "$(git -C "$install_dir" rev-parse HEAD)" \
+    --arg vivado "$vivado_version" \
+    '{
+      generated_at: $generated_at,
+      os: {name: $os, kernel: $kernel},
+      python: {version: $python, executable: $python_executable},
+      simulator: {smoke_test: $simulator, verilator: $verilator},
+      openeye: {repository: $openeye_repository, commit: $openeye_commit},
+      vivado: {version: $vivado},
+      python_dependency_snapshot: "requirements.lock.txt"
+    }' >"$manifest"
+}
+
 usage() {
   cat <<EOF
 Usage: ./install-openeye.sh [--dir PATH]
@@ -60,6 +122,7 @@ sudo apt-get install -y --no-install-recommends \
   git \
   gtkwave \
   iverilog \
+  jq \
   make \
   pkg-config \
   python3 \
@@ -95,9 +158,30 @@ uv pip install --python "$install_dir/.venv/bin/python" \
 uv pip install --python "$install_dir/.venv/bin/python" -e "$install_dir"
 
 "$install_dir/.venv/bin/python" -c 'import open_eye'
-iverilog -V | sed -n '1p'
+uv pip check --python "$install_dir/.venv/bin/python"
+
+pe_test_dir="$install_dir/test/cocotb_PE"
+[[ -f $pe_test_dir/Makefile ]] || die "OpenEye PE smoke-test Makefile not found: $pe_test_dir/Makefile"
+log 'Running the OpenEye PE smoke test with Icarus Verilog...'
+if ! (
+  cd "$pe_test_dir"
+  export PATH="$install_dir/.venv/bin:$PATH"
+  export VIRTUAL_ENV="$install_dir/.venv"
+  export SIM=icarus
+  make run
+); then
+  die 'OpenEye PE smoke test failed; dependency snapshot and environment manifest were not generated.'
+fi
+log 'OpenEye PE smoke test passed.'
+
+exclude_local_artifacts
+log 'Snapshotting the successfully tested Python environment...'
+uv pip freeze --strict --exclude-editable \
+  --python "$install_dir/.venv/bin/python" >"$install_dir/requirements.lock.txt"
+write_environment_manifest
 
 log "OpenEye installed at $install_dir"
 log "Pinned commit: $(git -C "$install_dir" rev-parse HEAD)"
+log "Environment manifest: $install_dir/environment.json"
+log "Python dependency snapshot: $install_dir/requirements.lock.txt"
 log "Activate with: source '$install_dir/.venv/bin/activate'"
-log "First smoke test: cd '$install_dir/test/cocotb_PE' && make run"

@@ -5,6 +5,7 @@ set -Eeuo pipefail
 readonly SCRIPT_NAME="${0##*/}"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 eww_build_dir=''
+eza_tmp_dir=''
 neovim_tmp_dir=''
 picom_build_dir=''
 greenclip_tmp_file=''
@@ -48,24 +49,102 @@ check_ubuntu() {
   [[ -n ${VERSION_CODENAME:-} ]] || die "Cannot detect the Ubuntu release codename."
 }
 
-backup_file() {
-  local path=$1
-  if [[ -e $path ]] && ! cmp -s "$path" "$path.bspwm-setup" 2>/dev/null; then
-    cp -a -- "$path" "$path.bak.$(date +%Y%m%d-%H%M%S)"
-    warn "Backed up existing file: $path"
+setup_swap() {
+  local target_kib=$((8 * 1024 * 1024))
+  local swapfile='/swapfile-bspwm-setup'
+  local total_kib
+  local missing_kib
+  local missing_mib
+  local available_kib
+  local required_free_kib
+  local swap_type
+
+  install -m 0644 \
+    "$SCRIPT_DIR/config/system/99-bspwm-setup-swap.conf" \
+    /etc/sysctl.d/99-bspwm-setup-swap.conf
+
+  if [[ -e /.dockerenv ]] ||
+    systemd-detect-virt --quiet --container >/dev/null 2>&1; then
+    warn 'Container detected; skipping swap activation because containers cannot manage host swap.'
+    return
   fi
+
+  sysctl --load /etc/sysctl.d/99-bspwm-setup-swap.conf >/dev/null
+  total_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
+  [[ $total_kib =~ ^[0-9]+$ ]] || die 'Cannot determine the current swap size.'
+  if ((total_kib >= target_kib)); then
+    log "Existing swap is already at least 8 GiB ($((total_kib / 1024)) MiB)."
+    return
+  fi
+
+  missing_kib=$((target_kib - total_kib))
+  missing_mib=$(((missing_kib + 1023) / 1024))
+
+  if [[ ! -e $swapfile ]]; then
+    available_kib=$(df -Pk / | awk 'NR == 2 {print $4}')
+    required_free_kib=$((missing_mib * 1024 + 2 * 1024 * 1024))
+    [[ $available_kib =~ ^[0-9]+$ ]] || die 'Cannot determine free disk space for swap.'
+    ((available_kib >= required_free_kib)) ||
+      die "Not enough disk space to add ${missing_mib} MiB of swap while retaining a 2 GiB safety margin."
+
+    log "Creating a ${missing_mib} MiB swap file to bring total swap to approximately 8 GiB..."
+    if ! fallocate -l "${missing_mib}MiB" "$swapfile"; then
+      rm -f -- "$swapfile"
+      dd if=/dev/zero of="$swapfile" bs=1M count="$missing_mib" status=progress
+    fi
+    chmod 0600 "$swapfile"
+    mkswap "$swapfile" >/dev/null
+  else
+    swap_type=$(blkid -p -s TYPE -o value "$swapfile" 2>/dev/null || true)
+    [[ $swap_type == swap ]] ||
+      die "Refusing to overwrite an existing non-swap file: $swapfile"
+    chmod 0600 "$swapfile"
+  fi
+
+  if ! swapon --show=NAME --noheadings |
+    awk -v path="$swapfile" '$1 == path {found=1} END {exit !found}'; then
+    swapon "$swapfile"
+  fi
+  if ! awk -v path="$swapfile" '$1 == path && $3 == "swap" {found=1} END {exit !found}' /etc/fstab; then
+    printf '%s none swap sw 0 0\n' "$swapfile" >>/etc/fstab
+  fi
+
+  total_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
+  ((total_kib >= target_kib)) || die 'Swap activation completed but total swap is still below 8 GiB.'
+  log "Swap ready: $((total_kib / 1024)) MiB total, vm.swappiness=20."
 }
 
-backup_directory() {
-  local path=$1
-  local source=$2
-  if [[ -d $path ]] && ! diff -qr --exclude='.bspwm-setup' "$source" "$path" >/dev/null; then
-    cp -a -- "$path" "$path.bak.$(date +%Y%m%d-%H%M%S)"
-    warn "Backed up existing directory: $path"
+link_repo_config() {
+  local source=$1
+  local target=$2
+  local link_owner=${3:-$target_user:$target_group}
+  local backup
+
+  [[ -e $source || -L $source ]] || die "Configuration source does not exist: $source"
+  mkdir -p -- "$(dirname -- "$target")"
+
+  if [[ -L $target && $(readlink -- "$target") == "$source" ]]; then
+    return
   fi
+
+  if [[ -e $target || -L $target ]]; then
+    backup="$target.bak.$(date +%Y%m%d-%H%M%S)"
+    while [[ -e $backup || -L $backup ]]; do
+      backup="$backup.1"
+    done
+    mv -- "$target" "$backup"
+    warn "Moved existing configuration to: $backup"
+  fi
+
+  ln -s -- "$source" "$target"
+  chown -h "$link_owner" "$target"
 }
 
 cleanup_build_dirs() {
+  if [[ -n $eza_tmp_dir && $eza_tmp_dir == /tmp/bspwm-eza.* ]]; then
+    rm -rf -- "$eza_tmp_dir"
+    eza_tmp_dir=''
+  fi
   if [[ -n $eww_build_dir && $eww_build_dir == /tmp/bspwm-eww.* ]]; then
     rm -rf -- "$eww_build_dir"
     eww_build_dir=''
@@ -85,6 +164,36 @@ cleanup_build_dirs() {
 }
 
 trap cleanup_build_dirs EXIT
+
+install_eza() {
+  local version='0.23.5'
+  local archive='eza_x86_64-unknown-linux-gnu.tar.gz'
+  local expected_sha256='35c70c5c43c29108075e58b893234c67ef585f0b53a7eaf8e9e7d4eec9f339b4'
+
+  if command -v eza >/dev/null 2>&1 &&
+    eza --version 2>/dev/null | grep -Fq "v$version"; then
+    log "Using the existing Eza v$version installation: $(command -v eza)"
+    return
+  fi
+
+  [[ $(dpkg --print-architecture) == amd64 ]] ||
+    die "This setup supports the official Eza v$version x86-64 release only."
+
+  eza_tmp_dir=$(mktemp -d /tmp/bspwm-eza.XXXXXX)
+  log "Installing Eza v$version from its official x86-64 release..."
+  curl -fL --retry 3 \
+    "https://github.com/eza-community/eza/releases/download/v$version/$archive" \
+    -o "$eza_tmp_dir/$archive"
+  printf '%s  %s\n' "$expected_sha256" "$eza_tmp_dir/$archive" |
+    sha256sum --check --status - || die "Eza v$version checksum verification failed."
+  tar -xzf "$eza_tmp_dir/$archive" -C "$eza_tmp_dir"
+  [[ -x $eza_tmp_dir/eza ]] || die 'The Eza release archive did not contain the expected binary.'
+  install -m 0755 "$eza_tmp_dir/eza" /usr/local/bin/eza
+  /usr/local/bin/eza --version 2>/dev/null | grep -Fq "v$version" ||
+    die "Eza v$version verification failed."
+  rm -rf -- "$eza_tmp_dir"
+  eza_tmp_dir=''
+}
 
 install_greenclip() {
   local version='4.2'
@@ -333,8 +442,11 @@ for required_config in \
   config/rofi/powermenu.rasi \
   config/rofi/screenshot.rasi \
   config/sxhkd/sxhkdrc \
+  config/system/99-bspwm-setup-swap.conf \
   config/wallpaper/bspwm-wallpaper.png \
+  config/x11/90-touchpad-tapping.conf \
   config/x11/Xresources \
+  config/x11/xinitrc \
   config/zathura/zathurarc \
   config/zsh/.zshrc \
   config/gtk-theme/siduck-onedark/index.theme; do
@@ -346,6 +458,7 @@ packages=(
   xinit
   xauth
   x11-xserver-utils
+  xserver-xorg-input-libinput
   bspwm
   sxhkd
   alacritty
@@ -360,9 +473,11 @@ packages=(
   zathura
   zathura-pdf-poppler
   zsh
-  eza
   nodejs
   npm
+  rclone
+  procps
+  util-linux
   pipewire
   pipewire-pulse
   wireplumber
@@ -421,6 +536,10 @@ fi
 
 log "Installing bspwm and desktop applications..."
 apt-get install -y --no-install-recommends "${packages[@]}"
+command -v rclone >/dev/null 2>&1 || die 'rclone installation failed.'
+log "Verified $(rclone version | sed -n '1p')."
+setup_swap
+install_eza
 [[ -r /usr/share/icons/Papirus-Dark/index.theme ]] ||
   die "Papirus-Dark was installed without its icon theme index."
 gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
@@ -431,23 +550,9 @@ install_neovim
 install_picom
 install_eww
 
-picom_config_source="$SCRIPT_DIR/config/picom/picom.conf"
-
 config_dir="$target_home/.config"
-bspwm_dir="$config_dir/bspwm"
-sxhkd_dir="$config_dir/sxhkd"
-alacritty_dir="$config_dir/alacritty"
-dunst_dir="$config_dir/dunst"
-dunst_icon_dir="$dunst_dir/icons"
-flameshot_dir="$config_dir/flameshot"
-picom_dir="$config_dir/picom"
-rofi_dir="$config_dir/rofi"
-eww_dir="$config_dir/eww"
-zathura_dir="$config_dir/zathura"
-gtk3_dir="$config_dir/gtk-3.0"
 fontconfig_dir="$config_dir/fontconfig/conf.d"
 wallpaper_dir="$target_home/.local/share/backgrounds"
-gtk_theme_dir="$target_home/.themes/siduck-onedark"
 font_dir="$target_home/.local/share/fonts/Iosevka"
 icon_font_dir="$target_home/.local/share/fonts/Icons"
 # These parent directories may not exist on Ubuntu Server minimal. Create them
@@ -465,178 +570,43 @@ install -d -m 0755 -o "$target_user" -g "$target_group" \
   "$target_home/Pictures" \
   "$target_home/Pictures/Screenshots" \
   "$target_home/.themes"
-mkdir -p \
-  "$bspwm_dir" \
-  "$sxhkd_dir" \
-  "$alacritty_dir" \
-  "$dunst_dir" \
-  "$dunst_icon_dir" \
-  "$flameshot_dir" \
-  "$picom_dir" \
-  "$rofi_dir" \
-  "$zathura_dir" \
-  "$gtk3_dir" \
+install -d -m 0755 -o "$target_user" -g "$target_group" \
   "$fontconfig_dir" \
   "$wallpaper_dir" \
   "$font_dir" \
   "$icon_font_dir"
+install -d -m 0755 /etc/X11/xorg.conf.d
 
-backup_file "$bspwm_dir/bspwmrc"
-backup_file "$sxhkd_dir/sxhkdrc"
-backup_file "$alacritty_dir/alacritty.toml"
-backup_file "$dunst_dir/dunstrc"
-backup_file "$dunst_icon_dir/notification.png"
-backup_file "$flameshot_dir/flameshot.ini"
-backup_file "$config_dir/greenclip.toml"
-backup_file "$picom_dir/picom.conf"
-backup_file "$rofi_dir/launcher.rasi"
-backup_file "$rofi_dir/clipboard.rasi"
-backup_file "$rofi_dir/powermenu.rasi"
-backup_file "$rofi_dir/screenshot.rasi"
-backup_file "$zathura_dir/zathurarc"
-backup_file "$gtk3_dir/settings.ini"
-backup_file "$fontconfig_dir/50-inter-ui.conf"
-backup_file "$target_home/.gtkrc-2.0"
-backup_file "$target_home/.npmrc"
-backup_file "$target_home/.zshrc"
-backup_file "$target_home/.Xresources"
-backup_file "$wallpaper_dir/bspwm-wallpaper.png"
-backup_file "$font_dir/IosevkaNerdFont-Regular.ttf"
-backup_file "$icon_font_dir/feather.ttf"
-backup_file "$target_home/.xinitrc"
-backup_directory "$gtk_theme_dir" "$SCRIPT_DIR/config/gtk-theme/siduck-onedark"
-backup_directory "$eww_dir" "$SCRIPT_DIR/config/eww"
-mkdir -p "$gtk_theme_dir"
-mkdir -p "$eww_dir"
-
-log "Writing the starter configuration for $target_user..."
-install -m 0755 "$SCRIPT_DIR/config/bspwm/bspwmrc" "$bspwm_dir/bspwmrc"
-install -m 0644 "$SCRIPT_DIR/config/sxhkd/sxhkdrc" "$sxhkd_dir/sxhkdrc"
-install -m 0644 \
-  "$SCRIPT_DIR/config/alacritty/alacritty.toml" \
-  "$alacritty_dir/alacritty.toml"
-install -m 0644 "$SCRIPT_DIR/config/dunst/dunstrc" "$dunst_dir/dunstrc"
-install -m 0644 \
-  "$SCRIPT_DIR/config/dunst/notification.png" \
-  "$dunst_icon_dir/notification.png"
-sed "s|@HOME@|$target_home|g" \
-  "$SCRIPT_DIR/config/flameshot/flameshot.ini" >"$flameshot_dir/flameshot.ini"
-chmod 0644 "$flameshot_dir/flameshot.ini"
-sed "s|@HOME@|$target_home|g" \
-  "$SCRIPT_DIR/config/greenclip/greenclip.toml" >"$config_dir/greenclip.toml"
-chmod 0644 "$config_dir/greenclip.toml"
-install -m 0644 "$picom_config_source" "$picom_dir/picom.conf"
-install -m 0644 "$SCRIPT_DIR/config/rofi/launcher.rasi" "$rofi_dir/launcher.rasi"
-install -m 0644 "$SCRIPT_DIR/config/rofi/clipboard.rasi" "$rofi_dir/clipboard.rasi"
-install -m 0644 "$SCRIPT_DIR/config/rofi/powermenu.rasi" "$rofi_dir/powermenu.rasi"
-install -m 0644 "$SCRIPT_DIR/config/rofi/screenshot.rasi" "$rofi_dir/screenshot.rasi"
-install -m 0644 "$SCRIPT_DIR/config/zathura/zathurarc" "$zathura_dir/zathurarc"
-install -m 0644 "$SCRIPT_DIR/config/gtk-3.0/settings.ini" "$gtk3_dir/settings.ini"
-install -m 0644 \
-  "$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf" \
-  "$fontconfig_dir/50-inter-ui.conf"
-install -m 0644 "$SCRIPT_DIR/config/gtk-2.0/gtkrc" "$target_home/.gtkrc-2.0"
-sed "s|@HOME@|$target_home|g" \
-  "$SCRIPT_DIR/config/npm/npmrc" >"$target_home/.npmrc"
-chmod 0644 "$target_home/.npmrc"
-install -m 0644 "$SCRIPT_DIR/config/zsh/.zshrc" "$target_home/.zshrc"
-install -m 0644 "$SCRIPT_DIR/config/x11/Xresources" "$target_home/.Xresources"
-install -m 0644 \
-  "$SCRIPT_DIR/config/wallpaper/bspwm-wallpaper.png" \
-  "$wallpaper_dir/bspwm-wallpaper.png"
-cp -a -- "$SCRIPT_DIR/config/gtk-theme/siduck-onedark/." "$gtk_theme_dir/"
-touch "$gtk_theme_dir/.bspwm-setup"
-cp -a -- "$SCRIPT_DIR/config/eww/." "$eww_dir/"
-touch "$eww_dir/.bspwm-setup"
-install -m 0644 \
-  "$SCRIPT_DIR/config/fonts/IosevkaNerdFont-Regular.ttf" \
-  "$font_dir/IosevkaNerdFont-Regular.ttf"
-install -m 0644 \
-  "$SCRIPT_DIR/config/fonts/feather.ttf" \
-  "$icon_font_dir/feather.ttf"
-
-install -m 0755 /dev/stdin "$target_home/.xinitrc" <<'EOF'
-#!/bin/sh
-
-export XDG_SESSION_TYPE=x11
-export GDK_BACKEND=x11
-export QT_QPA_PLATFORM=xcb
-export WINIT_UNIX_BACKEND=x11
-export SHELL=/usr/bin/zsh
-export GTK_THEME=siduck-onedark
-export XCURSOR_THEME=Bibata-Modern-Ice
-export XCURSOR_SIZE=24
-
-exec bspwm
-EOF
-
-# Save pristine copies so a later run can distinguish our files from user edits.
-cp -a -- "$bspwm_dir/bspwmrc" "$bspwm_dir/bspwmrc.bspwm-setup"
-cp -a -- "$sxhkd_dir/sxhkdrc" "$sxhkd_dir/sxhkdrc.bspwm-setup"
-cp -a -- "$alacritty_dir/alacritty.toml" "$alacritty_dir/alacritty.toml.bspwm-setup"
-cp -a -- "$dunst_dir/dunstrc" "$dunst_dir/dunstrc.bspwm-setup"
-cp -a -- \
-  "$dunst_icon_dir/notification.png" \
-  "$dunst_icon_dir/notification.png.bspwm-setup"
-cp -a -- "$flameshot_dir/flameshot.ini" "$flameshot_dir/flameshot.ini.bspwm-setup"
-cp -a -- "$config_dir/greenclip.toml" "$config_dir/greenclip.toml.bspwm-setup"
-cp -a -- "$picom_dir/picom.conf" "$picom_dir/picom.conf.bspwm-setup"
-cp -a -- "$rofi_dir/launcher.rasi" "$rofi_dir/launcher.rasi.bspwm-setup"
-cp -a -- "$rofi_dir/clipboard.rasi" "$rofi_dir/clipboard.rasi.bspwm-setup"
-cp -a -- "$rofi_dir/powermenu.rasi" "$rofi_dir/powermenu.rasi.bspwm-setup"
-cp -a -- "$rofi_dir/screenshot.rasi" "$rofi_dir/screenshot.rasi.bspwm-setup"
-cp -a -- "$zathura_dir/zathurarc" "$zathura_dir/zathurarc.bspwm-setup"
-cp -a -- "$gtk3_dir/settings.ini" "$gtk3_dir/settings.ini.bspwm-setup"
-cp -a -- \
-  "$fontconfig_dir/50-inter-ui.conf" \
-  "$fontconfig_dir/50-inter-ui.conf.bspwm-setup"
-cp -a -- "$target_home/.gtkrc-2.0" "$target_home/.gtkrc-2.0.bspwm-setup"
-cp -a -- "$target_home/.npmrc" "$target_home/.npmrc.bspwm-setup"
-cp -a -- "$target_home/.zshrc" "$target_home/.zshrc.bspwm-setup"
-cp -a -- "$target_home/.Xresources" "$target_home/.Xresources.bspwm-setup"
-cp -a -- \
-  "$wallpaper_dir/bspwm-wallpaper.png" \
-  "$wallpaper_dir/bspwm-wallpaper.png.bspwm-setup"
-cp -a -- \
-  "$font_dir/IosevkaNerdFont-Regular.ttf" \
-  "$font_dir/IosevkaNerdFont-Regular.ttf.bspwm-setup"
-cp -a -- \
-  "$icon_font_dir/feather.ttf" \
-  "$icon_font_dir/feather.ttf.bspwm-setup"
-cp -a -- "$target_home/.xinitrc" "$target_home/.xinitrc.bspwm-setup"
+log "Linking the starter configuration from the repository for $target_user..."
+link_repo_config \
+  "$SCRIPT_DIR/config/x11/90-touchpad-tapping.conf" \
+  /etc/X11/xorg.conf.d/90-touchpad-tapping.conf \
+  root:root
+link_repo_config "$SCRIPT_DIR/config/bspwm" "$config_dir/bspwm"
+link_repo_config "$SCRIPT_DIR/config/sxhkd" "$config_dir/sxhkd"
+link_repo_config "$SCRIPT_DIR/config/alacritty" "$config_dir/alacritty"
+link_repo_config "$SCRIPT_DIR/config/dunst" "$config_dir/dunst"
+link_repo_config "$SCRIPT_DIR/config/flameshot" "$config_dir/flameshot"
+link_repo_config "$SCRIPT_DIR/config/greenclip/greenclip.toml" "$config_dir/greenclip.toml"
+link_repo_config "$SCRIPT_DIR/config/picom" "$config_dir/picom"
+link_repo_config "$SCRIPT_DIR/config/rofi" "$config_dir/rofi"
+link_repo_config "$SCRIPT_DIR/config/eww" "$config_dir/eww"
+link_repo_config "$SCRIPT_DIR/config/zathura" "$config_dir/zathura"
+link_repo_config "$SCRIPT_DIR/config/gtk-3.0" "$config_dir/gtk-3.0"
+link_repo_config "$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf" "$fontconfig_dir/50-inter-ui.conf"
+link_repo_config "$SCRIPT_DIR/config/gtk-2.0/gtkrc" "$target_home/.gtkrc-2.0"
+link_repo_config "$SCRIPT_DIR/config/npm/npmrc" "$target_home/.npmrc"
+link_repo_config "$SCRIPT_DIR/config/zsh/.zshrc" "$target_home/.zshrc"
+link_repo_config "$SCRIPT_DIR/config/x11/Xresources" "$target_home/.Xresources"
+link_repo_config "$SCRIPT_DIR/config/x11/xinitrc" "$target_home/.xinitrc"
+link_repo_config "$SCRIPT_DIR/config/wallpaper/bspwm-wallpaper.png" "$wallpaper_dir/bspwm-wallpaper.png"
+link_repo_config "$SCRIPT_DIR/config/gtk-theme/siduck-onedark" "$target_home/.themes/siduck-onedark"
+link_repo_config "$SCRIPT_DIR/config/fonts/IosevkaNerdFont-Regular.ttf" "$font_dir/IosevkaNerdFont-Regular.ttf"
+link_repo_config "$SCRIPT_DIR/config/fonts/feather.ttf" "$icon_font_dir/feather.ttf"
 
 chown -R "$target_user:$target_group" \
-  "$bspwm_dir" \
-  "$sxhkd_dir" \
-  "$alacritty_dir" \
-  "$dunst_dir" \
-  "$flameshot_dir" \
-  "$picom_dir" \
-  "$rofi_dir" \
-  "$eww_dir" \
-  "$zathura_dir" \
-  "$gtk3_dir" \
-  "$fontconfig_dir" \
-  "$wallpaper_dir" \
-  "$gtk_theme_dir" \
-  "$font_dir" \
-  "$icon_font_dir" \
   "$target_home/.cache/npm" \
   "$target_home/.npm-global"
-chown "$target_user:$target_group" \
-  "$config_dir/greenclip.toml" \
-  "$config_dir/greenclip.toml.bspwm-setup"
-chown "$target_user:$target_group" \
-  "$target_home/.gtkrc-2.0" \
-  "$target_home/.gtkrc-2.0.bspwm-setup" \
-  "$target_home/.npmrc" \
-  "$target_home/.npmrc.bspwm-setup" \
-  "$target_home/.zshrc" \
-  "$target_home/.zshrc.bspwm-setup" \
-  "$target_home/.Xresources" \
-  "$target_home/.Xresources.bspwm-setup" \
-  "$target_home/.xinitrc" \
-  "$target_home/.xinitrc.bspwm-setup"
 
 runuser -u "$target_user" -- fc-cache -f "$font_dir" "$icon_font_dir"
 

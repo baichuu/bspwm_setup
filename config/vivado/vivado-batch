@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: vivado-batch SCRIPT.tcl [TCL_ARG ...]
+
+Run a Vivado Tcl script in batch mode. Vivado writes vivado.log and
+vivado.jou in the current working directory.
+EOF
+}
+
+[[ ${1:-} != -h && ${1:-} != --help ]] || {
+  usage
+  exit 0
+}
+
+(($# >= 1)) || {
+  usage >&2
+  exit 2
+}
+
+script=$1
+shift
+[[ -f $script ]] || {
+  printf 'vivado-batch: Tcl script not found: %s\n' "$script" >&2
+  exit 1
+}
+script=$(realpath -- "$script")
+
+settings="$HOME/.config/vivado/settings64.sh"
+[[ -r $settings ]] || {
+  printf 'vivado-batch: Vivado environment not found: %s\n' "$settings" >&2
+  exit 1
+}
+
+# shellcheck disable=SC1090
+source "$settings"
+exec vivado -mode batch -source "$script" -tclargs "$@"

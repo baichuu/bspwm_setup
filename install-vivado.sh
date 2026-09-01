@@ -4,6 +4,7 @@ set -Eeuo pipefail
 
 readonly VIVADO_VERSION='2025.2'
 readonly DOWNLOAD_URL='https://www.amd.com/en/support/downloads/adaptive-socs-and-fpgas/development-tools/2025-2.html'
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 work_dir=''
 
 log() {
@@ -72,9 +73,12 @@ if [[ ${VERSION_ID:-} == 24.04 && ${VERSION:-} != *'24.04.2'* ]]; then
 fi
 
 available_kib=$(df -Pk "$HOME" | awk 'NR == 2 {print $4}')
-if [[ $available_kib =~ ^[0-9]+$ ]] && ((available_kib < 80 * 1024 * 1024)); then
-  warn 'Less than 80 GiB is free. Vivado plus project runs can require substantial space.'
+if [[ $available_kib =~ ^[0-9]+$ ]] && ((available_kib < 100 * 1024 * 1024)); then
+  warn 'Less than 100 GiB is free. Vivado plus project runs can require substantial space.'
 fi
+
+[[ -x $SCRIPT_DIR/config/vivado/vivado-batch ]] ||
+  die 'Missing batch helper: config/vivado/vivado-batch'
 
 log 'Installing small host utilities needed by the installer...'
 sudo -v
@@ -153,6 +157,9 @@ exec vivado "$@"
 EOF
 chmod 0755 "$wrapper"
 
+batch_helper="$local_bin_dir/vivado-batch"
+install -m 0755 "$SCRIPT_DIR/config/vivado/vivado-batch" "$batch_helper"
+
 icon='applications-engineering'
 vivado_root=$(cd -- "$(dirname -- "$settings")" && pwd)
 found_icon=$(find "$vivado_root" -maxdepth 6 -type f \
@@ -179,4 +186,5 @@ update-desktop-database "$applications_dir"
 
 log "Vivado environment: $settings"
 log 'Rofi application entry created: AMD Vivado 2025.2'
+log "Vivado batch helper created: $batch_helper"
 log 'Open a new terminal, or run: source ~/.config/vivado/settings64.sh'

@@ -1,0 +1,12 @@
+#!/bin/sh
+
+export XDG_SESSION_TYPE=x11
+export GDK_BACKEND=x11
+export QT_QPA_PLATFORM=xcb
+export WINIT_UNIX_BACKEND=x11
+export SHELL=/usr/bin/zsh
+export GTK_THEME=siduck-onedark
+export XCURSOR_THEME=Bibata-Modern-Ice
+export XCURSOR_SIZE=24
+
+exec bspwm

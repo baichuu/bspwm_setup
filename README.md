@@ -3,7 +3,7 @@
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, LXAppearance, Chromium, Picom, Dunst, Eww,
 Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, Node.js, npm, PipeWire,
-PipeWire Pulse, WirePlumber, and a configured wallpaper.
+PipeWire Pulse, WirePlumber, rclone, and a configured wallpaper.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
@@ -12,6 +12,62 @@ configuration. Chromium is installed as a native `.deb` package from the
 third-party [XtraDeb applications PPA](https://launchpad.net/~xtradeb/+archive/ubuntu/apps),
 including its required setuid sandbox package, so the setup does not install or
 use Snap/Snapd.
+
+## Support and important notes
+
+This repository is intended only for a minimal **Ubuntu Server 24.04 LTS
+x86-64** installation. The scripts explicitly reject non-Ubuntu systems and
+are not supported on Ubuntu Desktop, Debian, Arch, WSL, ARM machines, or an
+existing Wayland desktop. A fresh Ubuntu Server installation is recommended;
+using it on an already customized desktop may replace assumptions made by the
+current session and user configuration.
+
+Before installing, note the following:
+
+- Use a regular local user with `sudo` access and a working internet
+  connection. Run `install-bspwm.sh` with `sudo`, but run `install-vivado.sh`
+  and `install-openeye.sh` as the regular user without `sudo`.
+- The desktop is X11-only. It deliberately does not install Xwayland, a
+  Wayland compositor, or a display manager. Start the session from a TTY with
+  `startx` after logging out and back in once.
+- Touchpads use the Xorg libinput driver with tap-to-click enabled. One-, two-,
+  and three-finger taps map to left, right, and middle click respectively.
+  Restart the Xorg session after changing
+  `config/x11/90-touchpad-tapping.conf`; reloading bspwm alone is insufficient.
+- Snapd is neither installed nor required. Chromium comes from XtraDeb, while
+  some pinned programs are downloaded or built from their upstream projects.
+  Review these external sources if the machine has strict supply-chain rules.
+- Keep this repository in a permanent, user-readable location after
+  installation. Active dotfiles are symlinks into `config/`; moving the repo
+  makes those links invalid.
+- Existing config destinations are preserved as timestamped `.bak.*` paths,
+  but settings are not automatically merged. Review the backups before
+  removing them.
+- The setup aims to stay lightweight, but Vivado is not lightweight. Keep at
+  least 100 GiB free before installing it; a 256 GB SSD requires selecting only
+  the needed Vivado edition, tools, and device family.
+- The desktop installer may allocate disk space for a swap file so total active
+  swap reaches approximately 8 GiB. It never manages host swap from inside a
+  container.
+- Audio, brightness control, the system tray, and hardware acceleration still
+  depend on the laptop firmware, kernel drivers, Xorg driver, and user session.
+  The container test can verify packages and builds, but it cannot validate
+  these hardware-dependent features or the Vivado GUI.
+- The AMD web installer requires an AMD account and interactive acceptance of
+  its download terms. This repository cannot embed credentials or bypass that
+  step.
+
+Ubuntu 24.04 does not provide `eza` in the enabled minimal-server package
+sources used by this setup. The installer therefore downloads the pinned Eza
+v0.23.5 x86-64 release directly from the upstream project, verifies its
+SHA-256 checksum, installs it under `/usr/local/bin`, and checks the reported
+version before configuring the shell aliases.
+
+The scripts and configuration have been syntax-checked, but the complete
+installer has intentionally not been run on the development workstation: a
+full run installs system packages, creates swap, and changes the desktop
+session. Perform the final end-to-end test on a fresh Ubuntu Server target or a
+disposable test machine before relying on it for important work.
 
 ## Resource footprint
 
@@ -40,12 +96,37 @@ The session is X11-only: it starts directly through Xorg, forces X11-compatible
 application backends, and launches Chromium with `--ozone-platform=x11`. The
 installer does not install or require Xwayland or a Wayland compositor.
 
+For large Vivado runs, the installer ensures that total active swap is at least
+approximately 8 GiB. It preserves existing swap and creates only the missing
+capacity in `/swapfile-bspwm-setup`, retains a 2 GiB disk safety margin, adds
+the file to `/etc/fstab`, and sets `vm.swappiness=20` to prefer RAM. Swap setup
+is skipped inside containers because a container cannot manage host swap.
+
 ## Installation
 
 ```bash
 chmod +x install-bspwm.sh
 sudo ./install-bspwm.sh
 ```
+
+Desktop configuration is installed as absolute symbolic links back into this
+repository instead of being copied. For example, `~/.config/bspwm` points to
+`config/bspwm`, and the same applies to Alacritty, Dunst, Eww, Flameshot,
+Picom, Rofi, sxhkd, Zathura, GTK, shell, font, theme, and wallpaper files.
+Editing a tracked file here therefore updates the active configuration
+immediately; reload the relevant program when it does not watch files itself.
+
+Keep this repository at its installed location after setup, because moving or
+deleting it breaks those links. When a destination already exists and is not
+the expected link, the installer preserves it beside the original name as a
+timestamped `.bak.YYYYMMDD-HHMMSS` path before creating the link. System files
+such as the swap sysctl setting remain regular copies under `/etc`, since they
+must be available independently of the user's home directory.
+
+The touchpad file is the exception among `/etc` settings: the installer links
+`/etc/X11/xorg.conf.d/90-touchpad-tapping.conf` back into this repository so it
+can be maintained with the other desktop configuration. The link is owned by
+root, but its target remains editable by the repository owner.
 
 After installation, log out once, log in as a regular user on a TTY, and run
 `startx`. The fresh login applies Zsh as that user's login shell with the same
@@ -72,6 +153,17 @@ npm config get prefix
 The second command should print the current user's `~/.npm-global` path. This
 avoids permission errors caused by writing global packages into `/usr` or
 `/usr/local`.
+
+rclone is installed from Ubuntu and its executable is verified during setup.
+Cloud credentials are deliberately not embedded in this repository. Configure
+a remote interactively as the regular user, then verify it:
+
+```bash
+rclone config
+rclone version
+rclone listremotes
+swapon --show
+```
 
 ## Keybindings
 
@@ -210,6 +302,9 @@ The downloaded filename should resemble
 ./install-vivado.sh ~/Downloads/FPGAs_AdaptiveSoCs_Unified_2025.2_*_Lin64.bin
 ```
 
+The script warns when the installation filesystem has less than 100 GiB free.
+This is a warning rather than an automatic deletion or cleanup operation.
+
 Run the script as the regular X11 user from an Alacritty terminal, not with
 `sudo`. Enter the sudo password only when the script installs Ubuntu libraries.
 Use the following choices in the AMD installer:
@@ -251,6 +346,17 @@ source ~/.config/vivado/settings64.sh
 vivado
 ```
 
+The installer also creates `~/.local/bin/vivado-batch`. Run a Tcl flow from
+any working directory with:
+
+```bash
+vivado-batch path/to/flow.tcl optional-tcl-arguments
+```
+
+The helper sources the installed 2025.2 environment, runs Vivado with
+`-mode batch`, and leaves `vivado.log` and `vivado.jou` in the current working
+directory.
+
 Install the pinned OpenEye RTL and Python environment separately:
 
 ```bash
@@ -259,4 +365,21 @@ Install the pinned OpenEye RTL and Python environment separately:
 
 This installs Icarus Verilog, Verilator, and GTKWave, clones OpenEye to
 `~/Projects/OpenEye`, and uses `uv` to create `.venv` and install all Python
-dependencies. It does not install Vitis or PetaLinux.
+dependencies. It then checks the Python dependency graph and automatically runs
+the upstream `test/cocotb_PE` smoke test with Icarus Verilog. A failed PE build
+or test stops the installer immediately.
+
+After the smoke test passes, the installer creates two locally excluded files
+inside the OpenEye checkout:
+
+- `environment.json`: generation time, Ubuntu/kernel details, virtualenv Python,
+  Icarus and Verilator versions, pinned OpenEye repository/commit, and detected
+  Vivado version.
+- `requirements.lock.txt`: exact installed Python dependency versions generated
+  by `uv pip freeze --strict --exclude-editable`. The editable OpenEye package
+  is represented by its pinned Git commit in `environment.json`.
+
+Install Vivado before OpenEye when possible so the manifest records Vivado
+2025.2 instead of `not installed`. Neither artifact changes upstream OpenEye's
+Git status because both names are added to `.git/info/exclude`. This setup does
+not install Vitis or PetaLinux.
