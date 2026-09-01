@@ -27,7 +27,7 @@
   (button :class {active_workspace == number ? "workspace-dot active" : "workspace-dot"}
           :onclick "bspc desktop -f '^${number}'"
     (label :class {active_workspace == number ? "workspace-icon" : "workspace-empty"}
-           :text {active_workspace == number ? "" : ""})))
+           :text {active_workspace == number ? "󰀘" : ""})))
 
 (defwidget workspace-list []
   (box :class "workspace-list"
@@ -144,8 +144,8 @@
   :geometry (geometry
     :x "0%"
     :y "6px"
-    :width "84%"
-    :height "76px"
+    :width "60%"
+    :height "68px"
     :anchor "bottom center")
   :stacking "fg"
   :windowtype "dock"

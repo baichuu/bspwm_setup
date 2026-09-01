@@ -18,7 +18,7 @@ window {
     width: 680px;
     padding: 0px;
     border: 0px;
-    border-radius: 35px;
+    border-radius: 0px;
     background-color: @background;
 }
 
@@ -27,7 +27,7 @@ mainbox {
     padding: 10px;
     border: 2px;
     border-color: @border-colour;
-    border-radius: 35px;
+    border-radius: 0px;
     background-color: transparent;
     children: [ inputbar, listview ];
 }
@@ -37,7 +37,7 @@ inputbar {
     padding: 8px 12px;
     border: 1px;
     border-color: @border-colour;
-    border-radius: 200px;
+    border-radius: 0px;
     background-color: @selection-background;
     text-color: @foreground;
     children: [ prompt, entry, textbox-title-close ];
@@ -88,7 +88,7 @@ element {
     enabled: true;
     padding: 9px 10px 9px 20px;
     border: 0px;
-    border-radius: 200px;
+    border-radius: 0px;
     background-color: transparent;
     text-color: @foreground;
     cursor: pointer;

@@ -14,21 +14,42 @@ super + p
 super + v
     rofi -modi "clipboard:greenclip print" -show clipboard -run-command '{cmd}' -theme ~/.config/rofi/clipboard.rasi
 
-super + b
+super + w
     chromium --ozone-platform=x11
 
 # Window manager
+alt + Tab
+    bspc node -f next.local.window
+
+alt + shift + Tab
+    bspc node -f prev.local.window
+
 super + shift + r
     eww reload >/dev/null 2>&1; pkill -USR1 -u "$(id -u)" -x sxhkd; bspc wm -r
 
 super + q
     bspc node -c
 
+super + f
+    bspc node -t ~fullscreen
+
+super + shift + space
+    bspc node -t ~floating
+
+super + m
+    bspc desktop -l next
+
 super + {h,j,k,l}
     bspc node -f {west,south,north,east}
 
 super + shift + {h,j,k,l}
     bspc node -s {west,south,north,east}
+
+super + alt + {h,j,k,l}
+    bspc node -v {-24 0,0 24,0 -24,24 0}
+
+super + ctrl + {h,j,k,l}
+    bspc node -z {left -24 0,bottom 0 24,top 0 -24,right 24 0}
 
 super + {1-3}
     bspc desktop -f '^{1-3}'

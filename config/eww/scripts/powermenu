@@ -1,11 +1,19 @@
 #!/bin/sh
 
-choice=$(printf 'Shutdown\nReboot\nLogout\nCancel\n' |
-  rofi -dmenu -i -no-show-icons -theme "$HOME/.config/rofi/powermenu.rasi")
+shutdown='  Shutdown'
+reboot='  Reboot'
+logout='󰗽  Logout'
+cancel='  Cancel'
+uptime_text=$(uptime -p 2>/dev/null || printf 'up unknown')
+uptime_text=${uptime_text#up }
+
+choice=$(printf '%s\n' "$shutdown" "$reboot" "$logout" "$cancel" |
+  rofi -dmenu -i -no-show-icons -mesg "Uptime : $uptime_text" \
+    -theme "$HOME/.config/rofi/powermenu.rasi")
 
 case $choice in
-Shutdown) systemctl poweroff ;;
-Reboot) systemctl reboot ;;
-Logout) bspc quit ;;
+"$shutdown") systemctl poweroff ;;
+"$reboot") systemctl reboot ;;
+"$logout") bspc quit ;;
 *) exit 0 ;;
 esac

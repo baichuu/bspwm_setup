@@ -1,9 +1,9 @@
 # bspwm setup for Ubuntu Server
 
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
-`bspwm`, `sxhkd`, Alacritty, Rofi, Chromium, Picom, Dunst, Eww, Zathura,
-Flameshot, Greenclip, Xclip, Neovim, Zsh, PipeWire, PipeWire Pulse,
-WirePlumber, and a configured wallpaper.
+`bspwm`, `sxhkd`, Alacritty, Rofi, LXAppearance, Chromium, Picom, Dunst, Eww,
+Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, Node.js, npm, PipeWire,
+PipeWire Pulse, WirePlumber, and a configured wallpaper.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
@@ -23,7 +23,11 @@ lightweight background processes. Chromium remains the largest component and
 will use significantly more memory only while it is running.
 
 Papirus and Bibata add disk usage because they contain many icon and cursor
-sizes, but they do not add background services or ongoing memory usage.
+sizes, but they do not add background services or ongoing memory usage. The
+small `librsvg2-common` runtime is installed explicitly so Rofi can render the
+SVG application icons from Papirus on an Ubuntu minimal installation.
+The variable Inter package is used instead of all static Inter weights to keep
+the system UI font installation below approximately 1 MB.
 
 Neovim is pinned to v0.11.7 and installed from its official architecture-
 specific Linux tarball under `/opt/nvim-0.11.7`. Picom is pinned to the latest
@@ -55,17 +59,40 @@ logged in as root, specify a regular user explicitly:
 sudo ./install-bspwm.sh --user username
 ```
 
+Node.js and npm are installed from Ubuntu. Global npm packages are stored under
+`~/.npm-global` and the npm cache under `~/.cache/npm`; the global binary
+directory is already included in Zsh's `PATH`. Install global packages as the
+regular user without `sudo`, for example:
+
+```bash
+npm install --global package-name
+npm config get prefix
+```
+
+The second command should print the current user's `~/.npm-global` path. This
+avoids permission errors caused by writing global packages into `/usr` or
+`/usr/local`.
+
 ## Keybindings
 
 - `Super + Enter`: open Alacritty.
 - `Super + Space`: open the Rofi application launcher.
-- `Super + B`: open Chromium.
+- `Super + W`: open Chromium.
 - `Super + S`: open the four-action Flameshot screenshot menu.
 - `Super + P`: open the styled power menu.
 - `Super + V`: search the Greenclip clipboard history with Rofi.
 - `Super + Q`: close the focused window.
+- `Super + F`: toggle fullscreen for the focused window.
+- `Super + Shift + Space`: toggle the focused window between tiled and
+  floating states.
+- `Super + M`: toggle the current workspace between tiled and monocle layout.
+- `Alt + Tab`: focus the next window in the current workspace; add `Shift` to
+  focus the previous window.
 - `Super + H/J/K/L`: move window focus.
 - `Super + Shift + H/J/K/L`: swap the focused window.
+- `Super + Alt + H/J/K/L`: move a floating window by 24 pixels.
+- `Super + Ctrl + H/J/K/L`: resize the focused window toward the selected edge
+  by 24 pixels; this adjusts the split when the window is tiled.
 - `Super + 1..3`: switch workspaces; add `Shift` to move the focused window.
 - `Super + Shift + R`: reload Eww, sxhkd, and bspwm.
 - Audio volume keys: change or mute the PipeWire default output.
@@ -76,8 +103,9 @@ an Artix launcher button, an APT update count, bspwm workspaces, clock/date, hov
 brightness and PipeWire volume controls, RAM/root-disk/CPU usage, a simple
 always-visible system tray, and a power button. It deliberately excludes a dock, runcat, notification center,
 window list, and theme selector. The launcher opens the styled Rofi drun mode;
-the power button opens a styled, headerless four-row Rofi menu. Feh applies the bundled
-wallpaper whenever bspwm starts.
+the power button opens a four-row Rofi menu with left-aligned icon labels and
+system uptime. All bundled Rofi menus use square corners. Feh applies the
+bundled wallpaper whenever bspwm starts.
 
 Greenclip v4.2 starts automatically and stores at most 50 clipboard entries.
 Its text and small-image history uses the source workstation configuration;
@@ -85,7 +113,17 @@ Xclip is installed for X11 clipboard interoperability. The Greenclip process
 and its static binary have a small resource footprint.
 
 GTK2 and GTK3 applications use the bundled `siduck-onedark` theme,
-`Papirus-Dark` icons, and the `Bibata-Modern-Ice` cursor at 24 px.
+`Papirus-Dark` icons, the Inter 11 UI font, and the `Bibata-Modern-Ice` cursor
+at 24 px. Fontconfig also prefers Inter for generic sans-serif text used by
+applications such as Chromium. Terminal, Rofi, Eww, and prompt fonts remain
+Iosevka Nerd Font so their monospace layout and glyph icons are preserved.
+
+Open **Customize Look and Feel** from the Rofi application launcher, or run
+`lxappearance`, to change the GTK widget theme, colors, icon theme, mouse
+cursor, and UI font graphically. The default selections installed by this
+repository are `siduck-onedark`, `Papirus-Dark`, `Bibata-Modern-Ice`, and
+Inter. LXAppearance is used without its Openbox plugin because this session
+runs bspwm.
 
 ## Configuration files
 
@@ -103,27 +141,31 @@ the target user's `~/.config` directory during installation:
   colors, PNG output, and screenshot-directory settings.
 - `config/greenclip/greenclip.toml`: persistent text and image history limited
   to 50 clipboard entries.
+- `config/npm/npmrc`: user-owned npm global prefix and cache paths.
 - `config/eww`: a minimal Espresso-themed bar with an APT update counter,
   CPU/memory helpers, a Rofi power menu, and brightness/PipeWire controls.
+- `config/fontconfig/50-inter-ui.conf`: selects Inter for generic sans-serif UI
+  text, including Chromium's system-font fallback.
 - `config/fonts/IosevkaNerdFont-Regular.ttf`: the single font weight required
   by the original Zsh prompt and Eww's Artix/power glyphs.
 - `config/fonts/feather.ttf`: the small icon font used by Eww's update, disk,
   and memory indicators.
 - `config/picom/picom.conf`: basic shadows without corner clipping, plus one normal
   window rule for open, close, and geometry animations on Picom v13.
-- `config/rofi/launcher.rasi`: rounded Espresso application launcher based on
+- `config/rofi/launcher.rasi`: square Espresso application launcher based on
   the source workstation, with Papirus icons and only one red close glyph.
 - `config/rofi/clipboard.rasi`: matching single-column Greenclip history menu.
 - `config/rofi/screenshot.rasi` and `config/rofi/powermenu.rasi`: matching
-  screenshot and headerless power menus.
+  screenshot and uptime power menus with square corners.
 - `config/sxhkd/sxhkdrc`: application, bspwm, audio, brightness, and reload
   keybindings.
 - `config/zathura/zathurarc`: the current dark, recolored PDF-viewer theme and
   zoom bindings.
 - `config/zsh/.zshrc`: a minimal colored path prompt with command duration and
-  the original `` glyph, with no plugin manager, aliases, or shell framework.
+  the original `` glyph and the source workstation's Eza listing/tree aliases,
+  with no plugin manager or shell framework.
 - `config/gtk-2.0/gtkrc` and `config/gtk-3.0/settings.ini`: select
-  `siduck-onedark`, `Papirus-Dark`, and `Bibata-Modern-Ice`.
+  `siduck-onedark`, Inter 11, `Papirus-Dark`, and `Bibata-Modern-Ice`.
 - `config/gtk-theme/siduck-onedark`: only the GTK2/GTK3 theme components needed
   by this setup; unrelated desktop-shell assets are excluded.
 - `config/x11/Xresources`: applies the Bibata cursor to the X11 root window.
@@ -170,10 +212,34 @@ The downloaded filename should resemble
 
 Run the script as the regular X11 user from an Alacritty terminal, not with
 `sudo`. Enter the sudo password only when the script installs Ubuntu libraries.
-In the AMD installer select **Download and Install Now**, **Vivado**, and
-**Vivado ML Standard Edition 2025.2**. Select only the **Zynq UltraScale+ MPSoC**
-device family; leave Vitis, PetaLinux, Model Composer, and DocNav unselected.
-Use an installation path without spaces, preferably `~/AMD`.
+Use the following choices in the AMD installer:
+
+1. On **Select Install Type**, choose **Download and Install Now**.
+2. On **Select Product to Install**, choose **Vivado**, not Vitis, Vitis
+   Embedded Development, BootGen, Lab Edition, or Hardware Server.
+3. On **Select Edition to Install**, choose **Vivado ML Standard**. Do not
+   choose **Vivado ML Enterprise**: the project does not need its paid device
+   coverage. If the customization page title says `Vivado ML Enterprise`, go
+   back and correct this selection before continuing.
+4. On the customization page, keep **Design Tools > Vivado** selected. Clear
+   Vitis HLS, Vitis Networking P4, Vitis Model Composer, Vitis Embedded
+   Development, Power Design Manager, and DocNav.
+5. Under **Devices**, expand **SoCs** and select only **Zynq UltraScale+ MPSoC**.
+   Clear Alveo/edge platforms, Kria SOMs, 7 Series, UltraScale, UltraScale+,
+   Versal Adaptive SoCs, and Engineering Sample Devices. This installs the
+   XCZU1-XCZU7 support needed for the provisional XCZU7EV target without all
+   Enterprise device families.
+6. Clear **Acquire or Manage a License Key**. ML Standard does not need a FLEX
+   license. Linux cable drivers can remain unselected for report-only work.
+7. In **Select the installation directory**, enter the absolute path to the
+   regular user's home, for example `/home/baichu/AMD`. Do not leave it blank;
+   avoid `~`, spaces, `/root`, and a path owned by root.
+8. Desktop and program-group shortcuts are optional because this repository
+   creates its own `AMD Vivado 2025.2` Rofi launcher after installation.
+9. Before starting the download, verify that the summary says **Vivado ML
+   Standard**, not Enterprise, and that only the required MPSoC device support
+   is selected. If it still estimates roughly 72 GB as in the Enterprise
+   selection, go back and remove the unwanted edition, tools, and devices.
 
 Standard 2025.2 does not require a FLEX license and supports XCZU1 through
 XCZU7 devices, but not the ZU19EG used by the OpenEye paper. After installation,

@@ -14,10 +14,10 @@ window {
     transparency: "real";
     location: center;
     anchor: center;
-    width: 420px;
+    width: 460px;
     padding: 0px;
     border: 0px;
-    border-radius: 35px;
+    border-radius: 0px;
     background-color: @background;
 }
 
@@ -25,9 +25,25 @@ mainbox {
     padding: 10px;
     border: 2px;
     border-color: @border-colour;
-    border-radius: 35px;
+    border-radius: 0px;
     background-color: transparent;
-    children: [ listview ];
+    children: [ message, listview ];
+}
+
+message {
+    enabled: true;
+    margin: 0px 0px 6px 0px;
+    padding: 10px 14px;
+    border: 0px;
+    background-color: @selection-background;
+    text-color: @foreground;
+}
+
+textbox {
+    background-color: transparent;
+    text-color: inherit;
+    vertical-align: 0.5;
+    horizontal-align: 0.0;
 }
 
 listview {
@@ -49,7 +65,7 @@ element {
     enabled: true;
     padding: 12px 18px;
     border: 0px;
-    border-radius: 200px;
+    border-radius: 0px;
     background-color: transparent;
     text-color: @foreground;
     cursor: pointer;
@@ -67,5 +83,5 @@ element-text {
     text-color: inherit;
     cursor: inherit;
     vertical-align: 0.5;
-    horizontal-align: 0.5;
+    horizontal-align: 0.0;
 }

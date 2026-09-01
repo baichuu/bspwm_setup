@@ -21,7 +21,7 @@ window {
     margin: 0px;
     padding: 0px;
     border: 0px;
-    border-radius: 35px;
+    border-radius: 0px;
     background-color: @background;
 }
 
@@ -30,7 +30,7 @@ mainbox {
     padding: 14px;
     border: 2px;
     border-color: @border-colour;
-    border-radius: 35px;
+    border-radius: 0px;
     background-color: transparent;
     children: [ inputbar, message, listview ];
 }
@@ -40,7 +40,7 @@ inputbar {
     padding: 8px 12px;
     border: 1px;
     border-color: @border-colour;
-    border-radius: 200px;
+    border-radius: 0px;
     background-color: @selection-background;
     text-color: @foreground;
     children: [ textbox-prompt-colon, entry, textbox-title-close ];
@@ -97,7 +97,7 @@ element {
     children: [ element-text ];
     padding: 8px 10px;
     border: 0px;
-    border-radius: 200px;
+    border-radius: 0px;
     background-color: transparent;
     text-color: @foreground;
     cursor: pointer;
@@ -130,7 +130,7 @@ message {
 textbox {
     padding: 8px 10px;
     border: 0px;
-    border-radius: 20px;
+    border-radius: 0px;
     background-color: @background-alt;
     text-color: @foreground;
     vertical-align: 0.5;
@@ -141,7 +141,7 @@ textbox {
 error-message {
     padding: 10px;
     border: 2px;
-    border-radius: 20px;
+    border-radius: 0px;
     border-color: @border-colour;
     background-color: @background;
     text-color: @foreground;

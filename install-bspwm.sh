@@ -321,10 +321,12 @@ for required_config in \
   config/eww/scripts/screenshot \
   config/eww/scripts/updates \
   config/eww/scripts/volume-status \
+  config/fontconfig/50-inter-ui.conf \
   config/fonts/feather.ttf \
   config/fonts/IosevkaNerdFont-Regular.ttf \
   config/gtk-2.0/gtkrc \
   config/gtk-3.0/settings.ini \
+  config/npm/npmrc \
   config/picom/picom.conf \
   config/rofi/launcher.rasi \
   config/rofi/clipboard.rasi \
@@ -348,6 +350,7 @@ packages=(
   sxhkd
   alacritty
   rofi
+  lxappearance
   chromium
   chromium-sandbox
   dunst
@@ -357,10 +360,15 @@ packages=(
   zathura
   zathura-pdf-poppler
   zsh
+  eza
+  nodejs
+  npm
   pipewire
   pipewire-pulse
   wireplumber
   papirus-icon-theme
+  hicolor-icon-theme
+  librsvg2-common
   gtk-update-icon-cache
   bibata-cursor-theme
   gtk2-engines-murrine
@@ -373,6 +381,7 @@ packages=(
   libxkbcommon-x11-0
   xkb-data
   fonts-dejavu-core
+  fonts-inter-variable
 )
 
 log "Updating package indexes..."
@@ -412,6 +421,10 @@ fi
 
 log "Installing bspwm and desktop applications..."
 apt-get install -y --no-install-recommends "${packages[@]}"
+[[ -r /usr/share/icons/Papirus-Dark/index.theme ]] ||
+  die "Papirus-Dark was installed without its icon theme index."
+gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
+gtk-update-icon-cache -f /usr/share/icons/Papirus >/dev/null 2>&1 || true
 gtk-update-icon-cache -f /usr/share/icons/Papirus-Dark >/dev/null 2>&1 || true
 install_greenclip
 install_neovim
@@ -432,6 +445,7 @@ rofi_dir="$config_dir/rofi"
 eww_dir="$config_dir/eww"
 zathura_dir="$config_dir/zathura"
 gtk3_dir="$config_dir/gtk-3.0"
+fontconfig_dir="$config_dir/fontconfig/conf.d"
 wallpaper_dir="$target_home/.local/share/backgrounds"
 gtk_theme_dir="$target_home/.themes/siduck-onedark"
 font_dir="$target_home/.local/share/fonts/Iosevka"
@@ -445,6 +459,9 @@ install -d -m 0755 -o "$target_user" -g "$target_group" \
   "$target_home/.local/share" \
   "$target_home/.local/share/fonts" \
   "$target_home/.cache" \
+  "$target_home/.cache/npm" \
+  "$target_home/.npm-global" \
+  "$target_home/.npm-global/bin" \
   "$target_home/Pictures" \
   "$target_home/Pictures/Screenshots" \
   "$target_home/.themes"
@@ -459,6 +476,7 @@ mkdir -p \
   "$rofi_dir" \
   "$zathura_dir" \
   "$gtk3_dir" \
+  "$fontconfig_dir" \
   "$wallpaper_dir" \
   "$font_dir" \
   "$icon_font_dir"
@@ -477,7 +495,9 @@ backup_file "$rofi_dir/powermenu.rasi"
 backup_file "$rofi_dir/screenshot.rasi"
 backup_file "$zathura_dir/zathurarc"
 backup_file "$gtk3_dir/settings.ini"
+backup_file "$fontconfig_dir/50-inter-ui.conf"
 backup_file "$target_home/.gtkrc-2.0"
+backup_file "$target_home/.npmrc"
 backup_file "$target_home/.zshrc"
 backup_file "$target_home/.Xresources"
 backup_file "$wallpaper_dir/bspwm-wallpaper.png"
@@ -512,7 +532,13 @@ install -m 0644 "$SCRIPT_DIR/config/rofi/powermenu.rasi" "$rofi_dir/powermenu.ra
 install -m 0644 "$SCRIPT_DIR/config/rofi/screenshot.rasi" "$rofi_dir/screenshot.rasi"
 install -m 0644 "$SCRIPT_DIR/config/zathura/zathurarc" "$zathura_dir/zathurarc"
 install -m 0644 "$SCRIPT_DIR/config/gtk-3.0/settings.ini" "$gtk3_dir/settings.ini"
+install -m 0644 \
+  "$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf" \
+  "$fontconfig_dir/50-inter-ui.conf"
 install -m 0644 "$SCRIPT_DIR/config/gtk-2.0/gtkrc" "$target_home/.gtkrc-2.0"
+sed "s|@HOME@|$target_home|g" \
+  "$SCRIPT_DIR/config/npm/npmrc" >"$target_home/.npmrc"
+chmod 0644 "$target_home/.npmrc"
 install -m 0644 "$SCRIPT_DIR/config/zsh/.zshrc" "$target_home/.zshrc"
 install -m 0644 "$SCRIPT_DIR/config/x11/Xresources" "$target_home/.Xresources"
 install -m 0644 \
@@ -561,7 +587,11 @@ cp -a -- "$rofi_dir/powermenu.rasi" "$rofi_dir/powermenu.rasi.bspwm-setup"
 cp -a -- "$rofi_dir/screenshot.rasi" "$rofi_dir/screenshot.rasi.bspwm-setup"
 cp -a -- "$zathura_dir/zathurarc" "$zathura_dir/zathurarc.bspwm-setup"
 cp -a -- "$gtk3_dir/settings.ini" "$gtk3_dir/settings.ini.bspwm-setup"
+cp -a -- \
+  "$fontconfig_dir/50-inter-ui.conf" \
+  "$fontconfig_dir/50-inter-ui.conf.bspwm-setup"
 cp -a -- "$target_home/.gtkrc-2.0" "$target_home/.gtkrc-2.0.bspwm-setup"
+cp -a -- "$target_home/.npmrc" "$target_home/.npmrc.bspwm-setup"
 cp -a -- "$target_home/.zshrc" "$target_home/.zshrc.bspwm-setup"
 cp -a -- "$target_home/.Xresources" "$target_home/.Xresources.bspwm-setup"
 cp -a -- \
@@ -586,16 +616,21 @@ chown -R "$target_user:$target_group" \
   "$eww_dir" \
   "$zathura_dir" \
   "$gtk3_dir" \
+  "$fontconfig_dir" \
   "$wallpaper_dir" \
   "$gtk_theme_dir" \
   "$font_dir" \
-  "$icon_font_dir"
+  "$icon_font_dir" \
+  "$target_home/.cache/npm" \
+  "$target_home/.npm-global"
 chown "$target_user:$target_group" \
   "$config_dir/greenclip.toml" \
   "$config_dir/greenclip.toml.bspwm-setup"
 chown "$target_user:$target_group" \
   "$target_home/.gtkrc-2.0" \
   "$target_home/.gtkrc-2.0.bspwm-setup" \
+  "$target_home/.npmrc" \
+  "$target_home/.npmrc.bspwm-setup" \
   "$target_home/.zshrc" \
   "$target_home/.zshrc.bspwm-setup" \
   "$target_home/.Xresources" \
