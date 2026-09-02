@@ -157,8 +157,8 @@ done < <(desktop_config_links)
 
 if ! $config_only; then
   required_commands=(
-    alacritty bspc bspwm chromium dunst eww eza flameshot greenclip lxpolkit nm-applet
-    nmcli netplan nvim npm picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
+    alacritty bspc bspwm chromium dunst eww eza flameshot greenclip nmcli nmtui
+    netplan nvim npm picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
     xclip zathura zsh
   )
   for command_name in "${required_commands[@]}"; do

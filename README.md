@@ -84,10 +84,10 @@ desktop environment. Picom, Dunst, and the basic Eww bar are
 lightweight background processes. Chromium remains the largest component and
 will use significantly more memory only while it is running.
 
-NetworkManager replaces networkd as the default device renderer and adds the
-small `nm-applet` tray process. The setup explicitly installs and starts
-`lxpolkit` as its lightweight authentication agent, which prevents APT from
-selecting GNOME Shell to satisfy that dependency. It does not require Snapd.
+NetworkManager replaces networkd as the default device renderer. Only its
+terminal interfaces, `nmcli` and `nmtui`, are used; the setup does not install
+`network-manager-gnome`, `nm-applet`, or a NetworkManager GUI. It does not
+require Snapd.
 
 Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage. The
@@ -178,9 +178,9 @@ swapon --show
 
 ## NetworkManager migration
 
-The full installer installs the native Ubuntu `network-manager`,
-`network-manager-gnome`, and `wpasupplicant` packages—never the NetworkManager
-Snap—and runs `setup-networkmanager.sh` as its final system step. Existing
+The full installer installs the native Ubuntu `network-manager` and
+`wpasupplicant` packages—never the NetworkManager Snap or GUI—and runs
+`setup-networkmanager.sh` as its final system step. Existing
 interface, DHCP, DNS, Wi-Fi, and static-address definitions stay in their
 original Netplan files. The added
 `config/network/99-bspwm-networkmanager.yaml` changes only the default renderer.
@@ -199,12 +199,13 @@ After installation, verify ownership and status with:
 netplan get
 nmcli general status
 nmcli device status
+nmtui
 ```
 
-The bspwm session starts `nm-applet --indicator`, so NetworkManager appears in
-the Eww system tray. `systemd-networkd` is not purged; Netplan simply stops
-assigning normal devices to it. If a future Git patch changes the renderer
-file, apply it explicitly from the physical TTY:
+There is no NetworkManager tray applet or graphical connection editor.
+`systemd-networkd` is not purged; Netplan simply stops assigning normal devices
+to it. If a future Git patch changes the renderer file, apply it explicitly
+from the physical TTY:
 
 ```bash
 sudo ./setup-networkmanager.sh

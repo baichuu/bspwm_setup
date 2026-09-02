@@ -4,8 +4,6 @@ pgrep -u "$(id -u)" -x sxhkd >/dev/null || sxhkd &
 pgrep -u "$(id -u)" -x picom >/dev/null || picom &
 pgrep -u "$(id -u)" -x dunst >/dev/null || dunst &
 pgrep -u "$(id -u)" -x greenclip >/dev/null || greenclip daemon &
-pgrep -u "$(id -u)" -x lxpolkit >/dev/null || lxpolkit &
-pgrep -u "$(id -u)" -x nm-applet >/dev/null || nm-applet --indicator &
 systemctl --user start pipewire.socket pipewire-pulse.socket wireplumber.service >/dev/null 2>&1 || true
 xsetroot -solid '#171717'
 xrdb -merge "$HOME/.Xresources"

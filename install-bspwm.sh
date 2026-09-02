@@ -417,8 +417,6 @@ packages=(
   nodejs
   npm
   network-manager
-  network-manager-gnome
-  lxpolkit
   wpasupplicant
   rclone
   procps

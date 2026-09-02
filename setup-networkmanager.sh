@@ -111,12 +111,10 @@ if ! $skip_package_install; then
   apt-get update
   apt-get install -y --no-install-recommends \
     network-manager \
-    network-manager-gnome \
-    lxpolkit \
     wpasupplicant
 fi
 
-for required_command in netplan nmcli systemctl; do
+for required_command in netplan nmcli nmtui systemctl; do
   command -v "$required_command" >/dev/null 2>&1 ||
     die "Required command is missing: $required_command"
 done
