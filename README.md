@@ -3,12 +3,14 @@
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, LXAppearance, Chromium, Picom, Dunst, Eww,
 Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, Node.js, npm, PipeWire,
-PipeWire Pulse, WirePlumber, rclone, and a configured wallpaper.
+PipeWire Pulse, WirePlumber, NetworkManager, rclone, and a configured wallpaper.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
-The script does not install a display manager or modify the machine's network
-configuration. Chromium is installed as a native `.deb` package from the
+The script does not install a display manager. It intentionally changes the
+Ubuntu Server Netplan renderer to NetworkManager in a guarded final step;
+details and rollback behavior are documented below. Chromium is installed as
+a native `.deb` package from the
 third-party [XtraDeb applications PPA](https://launchpad.net/~xtradeb/+archive/ubuntu/apps),
 including its required setuid sandbox package, so the setup does not install or
 use Snap/Snapd.
@@ -56,6 +58,10 @@ Before installing, note the following:
 - The AMD web installer requires an AMD account and interactive acceptance of
   its download terms. This repository cannot embed credentials or bypass that
   step.
+- The final desktop-installation step changes the Netplan renderer from the
+  Ubuntu Server `networkd` default to NetworkManager. Run it at the physical
+  machine, not over SSH, and confirm `netplan try` only after checking that the
+  expected network connection still works.
 
 Ubuntu 24.04 does not provide `eza` in the enabled minimal-server package
 sources used by this setup. The installer therefore downloads the pinned Eza
@@ -77,6 +83,11 @@ The installer uses the smaller `xserver-xorg` package instead of the full
 desktop environment. Picom, Dunst, and the basic Eww bar are
 lightweight background processes. Chromium remains the largest component and
 will use significantly more memory only while it is running.
+
+NetworkManager replaces networkd as the default device renderer and adds the
+small `nm-applet` tray process. The setup explicitly installs and starts
+`lxpolkit` as its lightweight authentication agent, which prevents APT from
+selecting GNOME Shell to satisfy that dependency. It does not require Snapd.
 
 Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage. The
@@ -165,6 +176,40 @@ rclone listremotes
 swapon --show
 ```
 
+## NetworkManager migration
+
+The full installer installs the native Ubuntu `network-manager`,
+`network-manager-gnome`, and `wpasupplicant` packages—never the NetworkManager
+Snap—and runs `setup-networkmanager.sh` as its final system step. Existing
+interface, DHCP, DNS, Wi-Fi, and static-address definitions stay in their
+original Netplan files. The added
+`config/network/99-bspwm-networkmanager.yaml` changes only the default renderer.
+
+Before changing the live network, the script stores a timestamped copy under
+`/var/backups/bspwm-setup/`, validates the merged Netplan configuration, and
+rejects an existing per-interface `renderer: networkd` override instead of
+silently leaving a mixed setup. It then uses an interactive 60-second
+`netplan try`; rejecting or not confirming the change restores both the live
+and on-disk configuration. For safety, migration is skipped in containers and
+refused over SSH or without an interactive TTY.
+
+After installation, verify ownership and status with:
+
+```bash
+netplan get
+nmcli general status
+nmcli device status
+```
+
+The bspwm session starts `nm-applet --indicator`, so NetworkManager appears in
+the Eww system tray. `systemd-networkd` is not purged; Netplan simply stops
+assigning normal devices to it. If a future Git patch changes the renderer
+file, apply it explicitly from the physical TTY:
+
+```bash
+sudo ./setup-networkmanager.sh
+```
+
 ## Applying and checking later patches
 
 The desktop link manifest and source-file validation live in
@@ -193,9 +238,10 @@ configuration layer:
 sudo ./apply-config.sh
 ```
 
-This command does not run APT, compile software, configure swap, or touch the
-Vivado/OpenEye installations. It preserves any unexpected destination as a
-timestamped backup before recreating the link. Press `Super + Shift + R` to
+This command does not run APT, compile software, configure swap or networking,
+or touch the Vivado/OpenEye installations. It preserves any unexpected
+destination as a timestamped backup before recreating the link. Press
+`Super + Shift + R` to
 reload Eww, sxhkd, and bspwm. Restart individual applications for their own
 configuration changes, and restart the entire Xorg session after modifying
 the touchpad InputClass file.
@@ -286,6 +332,8 @@ the target user's `~/.config` directory during installation:
 - `config/greenclip/greenclip.toml`: persistent text and image history limited
   to 50 clipboard entries.
 - `config/npm/npmrc`: user-owned npm global prefix and cache paths.
+- `config/network/99-bspwm-networkmanager.yaml`: selects NetworkManager as the
+  default Netplan renderer while retaining existing interface definitions.
 - `config/eww`: a minimal Espresso-themed bar with an APT update counter,
   CPU/memory helpers, a Rofi power menu, and brightness/PipeWire controls.
 - `config/fontconfig/50-inter-ui.conf`: selects Inter for generic sans-serif UI

@@ -26,6 +26,7 @@ config/greenclip/greenclip.toml
 config/gtk-2.0/gtkrc
 config/gtk-3.0/settings.ini
 config/gtk-theme/siduck-onedark/index.theme
+config/network/99-bspwm-networkmanager.yaml
 config/npm/npmrc
 config/picom/picom.conf
 config/rofi/clipboard.rasi

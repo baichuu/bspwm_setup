@@ -416,6 +416,10 @@ packages=(
   zsh
   nodejs
   npm
+  network-manager
+  network-manager-gnome
+  lxpolkit
+  wpasupplicant
   rclone
   procps
   util-linux
@@ -503,6 +507,9 @@ if [[ $(getent passwd "$target_user" | cut -d: -f7) != "$zsh_path" ]]; then
   usermod --shell "$zsh_path" "$target_user"
   log "Set Zsh as the login shell for $target_user."
 fi
+
+log 'Switching the Netplan renderer to NetworkManager...'
+"$SCRIPT_DIR/setup-networkmanager.sh" --skip-package-install
 
 log "Installation complete."
 log "Log in on a TTY and run: startx"

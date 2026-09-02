@@ -23,7 +23,8 @@ usage() {
 Usage: sudo ./$SCRIPT_NAME [--user USER]
 
 Recreate only the repository-backed desktop configuration links. This does not
-install packages, build software, configure swap, or install Vivado/OpenEye.
+install packages, build software, configure swap or networking, or install
+Vivado/OpenEye.
 EOF
 }
 

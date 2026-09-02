@@ -87,6 +87,7 @@ executable_sources=(
   config/eww/scripts/volume-status
   config/vivado/vivado-batch
   config/x11/xinitrc
+  setup-networkmanager.sh
 )
 for relative in "${executable_sources[@]}"; do
   if [[ -x $SCRIPT_DIR/$relative ]]; then
@@ -100,6 +101,7 @@ shell_sources=(
   install-bspwm.sh
   install-openeye.sh
   install-vivado.sh
+  setup-networkmanager.sh
   apply-config.sh
   check-setup.sh
   lib/config-links.sh
@@ -155,8 +157,9 @@ done < <(desktop_config_links)
 
 if ! $config_only; then
   required_commands=(
-    alacritty bspc bspwm chromium dunst eww eza flameshot greenclip nvim npm
-    picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber xclip zathura zsh
+    alacritty bspc bspwm chromium dunst eww eza flameshot greenclip lxpolkit nm-applet
+    nmcli netplan nvim npm picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
+    xclip zathura zsh
   )
   for command_name in "${required_commands[@]}"; do
     if command -v "$command_name" >/dev/null 2>&1; then
@@ -175,6 +178,24 @@ if ! $config_only; then
   fi
   if command -v picom >/dev/null 2>&1; then
     picom --version 2>/dev/null | grep -Fq 'v13' || fail 'Picom is not pinned v13'
+  fi
+
+  if command -v netplan >/dev/null 2>&1; then
+    effective_network=$(netplan get 2>/dev/null || true)
+    if printf '%s\n' "$effective_network" | grep -Eq 'renderer:[[:space:]]+NetworkManager' &&
+      ! printf '%s\n' "$effective_network" | grep -Eiq 'renderer:[[:space:]]+networkd'; then
+      pass 'Netplan renderer is NetworkManager'
+    else
+      fail 'Netplan is not exclusively rendered by NetworkManager'
+    fi
+  else
+    fail 'Netplan command is missing'
+  fi
+  if command -v nmcli >/dev/null 2>&1 &&
+    nmcli -t -f RUNNING general 2>/dev/null | grep -Fxq running; then
+    pass 'NetworkManager is running'
+  else
+    fail 'NetworkManager is not running'
   fi
 
   swap_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
