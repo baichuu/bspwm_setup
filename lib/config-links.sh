@@ -19,7 +19,6 @@ config/eww/scripts/screenshot
 config/eww/scripts/updates
 config/eww/scripts/volume-status
 config/flameshot/flameshot.ini
-config/fontconfig/50-inter-ui.conf
 config/fonts/IosevkaNerdFont-Regular.ttf
 config/fonts/feather.ttf
 config/greenclip/greenclip.toml
@@ -60,7 +59,6 @@ $SCRIPT_DIR/config/rofi|$config_dir/rofi|$target_user:$target_group
 $SCRIPT_DIR/config/eww|$config_dir/eww|$target_user:$target_group
 $SCRIPT_DIR/config/zathura|$config_dir/zathura|$target_user:$target_group
 $SCRIPT_DIR/config/gtk-3.0|$config_dir/gtk-3.0|$target_user:$target_group
-$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf|$config_dir/fontconfig/conf.d/50-inter-ui.conf|$target_user:$target_group
 $SCRIPT_DIR/config/gtk-2.0/gtkrc|$target_home/.gtkrc-2.0|$target_user:$target_group
 $SCRIPT_DIR/config/npm/npmrc|$target_home/.npmrc|$target_user:$target_group
 $SCRIPT_DIR/config/zsh/.zshrc|$target_home/.zshrc|$target_user:$target_group
@@ -113,11 +111,11 @@ install_desktop_config_links() {
   local source
   local target
   local owner
+  local legacy_inter_link="$target_home/.config/fontconfig/conf.d/50-inter-ui.conf"
 
   validate_desktop_config_sources
   install -d -m 0755 -o "$target_user" -g "$target_group" \
     "$target_home/.config" \
-    "$target_home/.config/fontconfig/conf.d" \
     "$target_home/.local" \
     "$target_home/.local/share" \
     "$target_home/.local/share/backgrounds" \
@@ -132,6 +130,12 @@ install_desktop_config_links() {
     "$target_home/Pictures/Screenshots" \
     "$target_home/.themes"
   install -d -m 0755 /etc/X11/xorg.conf.d
+
+  if [[ -L $legacy_inter_link &&
+    $(readlink -- "$legacy_inter_link") == "$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf" ]]; then
+    rm -f -- "$legacy_inter_link"
+    log "Removed the retired Inter Fontconfig override: $legacy_inter_link"
+  fi
 
   while IFS='|' read -r source target owner; do
     [[ -n $source ]] || continue

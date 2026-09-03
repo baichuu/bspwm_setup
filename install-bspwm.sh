@@ -11,6 +11,7 @@ lazygit_tmp_dir=''
 neovim_tmp_dir=''
 picom_build_dir=''
 greenclip_tmp_file=''
+transient_build_packages=()
 
 log() {
   printf '\033[1;32m[%s]\033[0m %s\n' "$SCRIPT_NAME" "$*"
@@ -31,12 +32,13 @@ source "$SCRIPT_DIR/lib/config-links.sh"
 
 usage() {
   cat <<EOF
-Usage: sudo ./$SCRIPT_NAME [--user USER]
+Usage: sudo ./$SCRIPT_NAME [--user USER] [--with-npm]
 
 Install a bspwm desktop and common desktop utilities on Ubuntu Server minimal.
 
 Options:
   --user USER    Configure bspwm for USER (default: the user who called sudo)
+  --with-npm     Also install Node.js and npm (not needed by DominoSearch)
   -h, --help     Show this help
 EOF
 }
@@ -118,6 +120,29 @@ setup_swap() {
   total_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
   ((total_kib >= target_kib)) || die 'Swap activation completed but total swap is still below 8 GiB.'
   log "Swap ready: $((total_kib / 1024)) MiB total, vm.swappiness=20."
+}
+
+install_transient_build_packages() {
+  local package
+
+  for package in "$@"; do
+    if [[ $(dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null || true) != installed ]]; then
+      transient_build_packages+=("$package")
+    fi
+  done
+  apt-get install -y --no-install-recommends "$@"
+}
+
+cleanup_package_data() {
+  log 'Removing unused packages and APT download/index caches...'
+  if ((${#transient_build_packages[@]})); then
+    apt-get purge -y "${transient_build_packages[@]}"
+  fi
+  apt-get autoremove -y --purge
+  apt-get clean
+  if [[ -d /var/lib/apt/lists ]]; then
+    find /var/lib/apt/lists -mindepth 1 -delete
+  fi
 }
 
 cleanup_build_dirs() {
@@ -280,7 +305,7 @@ install_eww() {
   rustup_home="$eww_build_dir/rustup"
 
   log "Building the X11-only Eww binary in a temporary directory..."
-  apt-get install -y --no-install-recommends \
+  install_transient_build_packages \
     build-essential \
     git \
     pkg-config \
@@ -386,7 +411,7 @@ install_picom() {
 
   picom_build_dir=$(mktemp -d /tmp/bspwm-picom.XXXXXX)
   log "Building Picom v$version with the lightweight XRender feature set..."
-  apt-get install -y --no-install-recommends \
+  install_transient_build_packages \
     build-essential \
     cmake \
     git \
@@ -433,6 +458,7 @@ install_picom() {
 }
 
 target_user="${SUDO_USER:-}"
+install_npm=false
 
 while (($#)); do
   case $1 in
@@ -440,6 +466,10 @@ while (($#)); do
     (($# >= 2)) || die "--user requires a user name."
     target_user=$2
     shift 2
+    ;;
+  --with-npm)
+    install_npm=true
+    shift
     ;;
   -h | --help)
     usage
@@ -482,8 +512,7 @@ packages=(
   zathura
   zathura-pdf-poppler
   zsh
-  nodejs
-  npm
+  git
   rclone
   procps
   util-linux
@@ -507,6 +536,10 @@ packages=(
   fonts-dejavu-core
   fonts-inter-variable
 )
+
+if $install_npm; then
+  packages+=(nodejs npm)
+fi
 
 log "Updating package indexes..."
 export DEBIAN_FRONTEND=noninteractive
@@ -574,5 +607,6 @@ if [[ $(getent passwd "$target_user" | cut -d: -f7) != "$zsh_path" ]]; then
   log "Set Zsh as the login shell for $target_user."
 fi
 
+cleanup_package_data
 log "Installation complete."
 log "Log out, then log in on TTY1; Zsh will start X automatically."

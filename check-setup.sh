@@ -153,10 +153,18 @@ while IFS='|' read -r source target owner; do
   fi
 done < <(desktop_config_links)
 
+legacy_inter_link="$target_home/.config/fontconfig/conf.d/50-inter-ui.conf"
+if [[ -L $legacy_inter_link &&
+  $(readlink -- "$legacy_inter_link") == "$SCRIPT_DIR/config/fontconfig/50-inter-ui.conf" ]]; then
+  fail "$legacy_inter_link is the retired forced-Inter symlink; rerun apply-config.sh"
+else
+  pass 'no repository-forced Inter Fontconfig override'
+fi
+
 if ! $config_only; then
   required_commands=(
     alacritty bspc bspwm chromium dunst eww eza flameshot greenclip lazygit nvim
-    npm picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
+    picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
     xclip zathura zsh
   )
   for command_name in "${required_commands[@]}"; do

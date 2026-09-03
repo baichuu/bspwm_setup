@@ -2,8 +2,9 @@
 
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, LXAppearance, Chromium, Picom, Dunst, Eww,
-Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, LazyGit, Node.js, npm, PipeWire,
-PipeWire Pulse, WirePlumber, rclone, and a configured wallpaper.
+Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, LazyGit, PipeWire,
+PipeWire Pulse, WirePlumber, rclone, and a configured wallpaper. Node.js and npm
+are available only through the optional `--with-npm` flag.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
@@ -83,21 +84,36 @@ Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage. The
 small `librsvg2-common` runtime is installed explicitly so Rofi can render the
 SVG application icons from Papirus on an Ubuntu minimal installation.
-The variable Inter package is used instead of all static Inter weights to keep
-the system UI font installation below approximately 1 MB.
+The variable Inter package is installed instead of all static Inter weights,
+but it is not forced as the system default. GTK uses the generic `Sans` family,
+which can be changed later with LXAppearance.
 
 Neovim is pinned to v0.11.7 and installed from its official architecture-
-specific Linux tarball under `/opt/nvim-0.11.7`. Flameshot is pinned to v13.3.0
-using its official Ubuntu 24.04 package, and LazyGit is pinned to v0.64.1 using
-its official x86-64 tarball. Picom is pinned to the latest stable release
+specific Linux tarball under `/opt/nvim-0.11.7`. Node.js and npm are omitted by
+default because DominoSearch has no JavaScript dependency. Flameshot is pinned
+to v13.3.0 using its official Ubuntu 24.04 package, and LazyGit is pinned to
+v0.64.1 using its official x86-64 tarball. Picom is pinned to the latest stable release
 available when this setup was updated, v13, and is built with
-the lightweight XRender feature set. Build dependencies are retained so later
-source rebuilds do not need to download them again; temporary source and
-download directories are removed.
+the lightweight XRender feature set. Build-only packages newly introduced by
+the installer are purged after Picom and Eww are built; packages that already
+existed before setup are preserved.
+
+At the end of a successful installation, the script removes unused automatic
+dependencies, temporary source/download directories, downloaded `.deb`
+archives, the APT package cache, and APT index files. Run `sudo apt update`
+before a later manual package installation so APT can recreate its indexes.
 
 The session is X11-only: it starts directly through Xorg, forces X11-compatible
 application backends, and launches Chromium with `--ozone-platform=x11`. The
 installer does not install or require Xwayland or a Wayland compositor.
+
+For the `~/Projects/DominoSearch` workflow, the remaining larger components are
+intentional: Chromium is needed for AMD account/download documentation, and
+Vivado is installed separately with only Vivado ML Standard and Zynq
+UltraScale+ MPSoC support. GTKWave, Icarus Verilog, and Verilator are installed
+by `install-openeye.sh`, not by the desktop installer. Eww and Picom build in
+temporary directories, install stripped binaries, and release their newly
+introduced build-only packages during the final cleanup.
 
 For large Vivado runs, the installer ensures that total active swap is at least
 approximately 8 GiB. It preserves existing swap and creates only the missing
@@ -111,6 +127,12 @@ is skipped inside containers because a container cannot manage host swap.
 chmod +x install-bspwm.sh
 sudo ./install-bspwm.sh
 ```
+
+This default is the recommended DominoSearch workstation profile. It does not
+install Node.js or npm, and it does not install the large PyTorch/ImageNet
+environment locally. The project documentation runs training and full
+validation on Colab; this machine keeps only the lightweight desktop, RTL
+simulation tools, OpenEye, and the selected Vivado components.
 
 Desktop configuration is installed as absolute symbolic links back into this
 repository instead of being copied. For example, `~/.config/bspwm` points to
@@ -144,10 +166,17 @@ logged in as root, specify a regular user explicitly:
 sudo ./install-bspwm.sh --user username
 ```
 
-Node.js and npm are installed from Ubuntu. Global npm packages are stored under
-`~/.npm-global` and the npm cache under `~/.cache/npm`; the global binary
-directory is already included in Zsh's `PATH`. Install global packages as the
-regular user without `sudo`, for example:
+Node.js and npm are optional and are not needed by DominoSearch. To install
+them from Ubuntu, add `--with-npm` to the initial desktop command:
+
+```bash
+sudo ./install-bspwm.sh --with-npm
+```
+
+Global npm packages are then stored under `~/.npm-global` and the npm cache
+under `~/.cache/npm`; the global binary directory is already included in
+Zsh's `PATH`. Install global packages as the regular user without `sudo`, for
+example:
 
 ```bash
 npm install --global package-name
@@ -262,16 +291,17 @@ Xclip is installed for X11 clipboard interoperability. The Greenclip process
 and its static binary have a small resource footprint.
 
 GTK2 and GTK3 applications use the bundled `siduck-onedark` theme,
-`Papirus-Dark` icons, the Inter 11 UI font, and the `Bibata-Modern-Ice` cursor
-at 24 px. Fontconfig also prefers Inter for generic sans-serif text used by
-applications such as Chromium. Terminal, Rofi, Eww, and prompt fonts remain
-Iosevka Nerd Font so their monospace layout and glyph icons are preserved.
+`Papirus-Dark` icons, the generic Sans 11 UI font, and the
+`Bibata-Modern-Ice` cursor at 24 px. Inter remains installed and available for
+manual selection, but no Fontconfig rule forces applications such as Chromium
+to use it. Terminal, Rofi, Eww, and prompt fonts remain Iosevka Nerd Font so
+their monospace layout and glyph icons are preserved.
 
 Open **Customize Look and Feel** from the Rofi application launcher, or run
 `lxappearance`, to change the GTK widget theme, colors, icon theme, mouse
 cursor, and UI font graphically. The default selections installed by this
 repository are `siduck-onedark`, `Papirus-Dark`, `Bibata-Modern-Ice`, and
-Inter. LXAppearance is used without its Openbox plugin because this session
+Sans 11. LXAppearance is used without its Openbox plugin because this session
 runs bspwm.
 
 ## Configuration files
@@ -293,8 +323,6 @@ the target user's `~/.config` directory during installation:
 - `config/npm/npmrc`: user-owned npm global prefix and cache paths.
 - `config/eww`: a minimal Espresso-themed bar with an APT update counter,
   CPU/memory helpers, a Rofi power menu, and brightness/PipeWire controls.
-- `config/fontconfig/50-inter-ui.conf`: selects Inter for generic sans-serif UI
-  text, including Chromium's system-font fallback.
 - `config/fonts/IosevkaNerdFont-Regular.ttf`: the single font weight required
   by the original Zsh prompt and Eww's Artix/power glyphs.
 - `config/fonts/feather.ttf`: the small icon font used by Eww's update, disk,
@@ -314,7 +342,7 @@ the target user's `~/.config` directory during installation:
   the original `` glyph and the source workstation's Eza listing/tree aliases,
   with no plugin manager or shell framework.
 - `config/gtk-2.0/gtkrc` and `config/gtk-3.0/settings.ini`: select
-  `siduck-onedark`, Inter 11, `Papirus-Dark`, and `Bibata-Modern-Ice`.
+  `siduck-onedark`, Sans 11, `Papirus-Dark`, and `Bibata-Modern-Ice`.
 - `config/gtk-theme/siduck-onedark`: only the GTK2/GTK3 theme components needed
   by this setup; unrelated desktop-shell assets are excluded.
 - `config/x11/Xresources`: applies the Bibata cursor to the X11 root window.
@@ -328,8 +356,10 @@ the target user's `~/.config` directory during installation:
 Eww is not distributed as an Ubuntu package. If it is missing, the installer
 builds the official v0.6.0 source with X11-only support in `/tmp` and installs
 the stripped binary. The temporary Rust toolchain is pinned to v1.77.2 for
-compatibility with Eww's locked dependencies. Build packages are retained, but
-the temporary Rust toolchain, Cargo cache, and source tree are removed.
+compatibility with Eww's locked dependencies. The temporary Rust toolchain,
+Cargo cache, and source tree are removed. Build packages newly introduced by
+this installer are also purged after the Eww and Picom binaries have been
+installed; packages already present before the run are preserved.
 
 Neovim v0.11.7 is installed from the official GitHub release tarball on amd64
 and arm64 after verifying its upstream SHA-256 digest. Picom v13 is compiled
