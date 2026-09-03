@@ -113,6 +113,10 @@ mkdir -p -- "$(dirname -- "$launch_log")"
 : >"$launch_log"
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
+# Vivado's Java GUI must be told that bspwm is a non-reparenting X11 window
+# manager. Do not pass the custom GTK theme into AMD's bundled GUI runtime.
+export _JAVA_AWT_WM_NONREPARENTING=1
+unset GTK_THEME
 
 if ! source "@SETTINGS@" >>"$launch_log" 2>&1; then
   printf 'Failed to load the Vivado environment. See %s\n' "$launch_log" >&2

@@ -455,7 +455,9 @@ This finds the existing `settings64.sh`, removes only the known AMD-generated
 application cache. It also installs and generates `en_US.UTF-8` when an Ubuntu
 Server minimal installation does not provide that locale; Vivado's
 `rdiArgs.sh` aborts during startup without it. Launch failures are written to
-`~/.cache/vivado-launch.log`.
+`~/.cache/vivado-launch.log`. The wrapper sets Java's non-reparenting X11 hint
+for bspwm and removes the session's custom `GTK_THEME` only for Vivado, avoiding
+a blank Java GUI without changing the appearance of other applications.
 
 The installer also creates `~/.local/bin/vivado-batch`. Run a Tcl flow from
 any working directory with:
