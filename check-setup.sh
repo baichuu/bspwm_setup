@@ -87,7 +87,6 @@ executable_sources=(
   config/eww/scripts/volume-status
   config/vivado/vivado-batch
   config/x11/xinitrc
-  setup-networkmanager.sh
 )
 for relative in "${executable_sources[@]}"; do
   if [[ -x $SCRIPT_DIR/$relative ]]; then
@@ -101,7 +100,6 @@ shell_sources=(
   install-bspwm.sh
   install-openeye.sh
   install-vivado.sh
-  setup-networkmanager.sh
   apply-config.sh
   check-setup.sh
   lib/config-links.sh
@@ -157,8 +155,8 @@ done < <(desktop_config_links)
 
 if ! $config_only; then
   required_commands=(
-    alacritty bspc bspwm chromium dunst eww eza flameshot greenclip nmcli nmtui
-    netplan nvim npm picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
+    alacritty bspc bspwm chromium dunst eww eza flameshot greenclip lazygit nvim
+    npm picom pipewire pipewire-pulse rclone rofi sxhkd wireplumber
     xclip zathura zsh
   )
   for command_name in "${required_commands[@]}"; do
@@ -172,30 +170,19 @@ if ! $config_only; then
   if command -v eza >/dev/null 2>&1; then
     eza --version 2>/dev/null | grep -Fq 'v0.23.5' || fail 'Eza is not pinned v0.23.5'
   fi
+  if command -v flameshot >/dev/null 2>&1; then
+    flameshot --version 2>&1 | grep -Fq '13.3.0' || fail 'Flameshot is not pinned v13.3.0'
+  fi
+  if command -v lazygit >/dev/null 2>&1; then
+    lazygit --version 2>/dev/null | grep -Fq 'version=0.64.1' ||
+      fail 'LazyGit is not pinned v0.64.1'
+  fi
   if command -v nvim >/dev/null 2>&1; then
     [[ $(nvim --version 2>/dev/null | sed -n '1p') == 'NVIM v0.11.7' ]] ||
       fail 'Neovim is not pinned v0.11.7'
   fi
   if command -v picom >/dev/null 2>&1; then
     picom --version 2>/dev/null | grep -Fq 'v13' || fail 'Picom is not pinned v13'
-  fi
-
-  if command -v netplan >/dev/null 2>&1; then
-    effective_network=$(netplan get 2>/dev/null || true)
-    if printf '%s\n' "$effective_network" | grep -Eq 'renderer:[[:space:]]+NetworkManager' &&
-      ! printf '%s\n' "$effective_network" | grep -Eiq 'renderer:[[:space:]]+networkd'; then
-      pass 'Netplan renderer is NetworkManager'
-    else
-      fail 'Netplan is not exclusively rendered by NetworkManager'
-    fi
-  else
-    fail 'Netplan command is missing'
-  fi
-  if command -v nmcli >/dev/null 2>&1 &&
-    nmcli -t -f RUNNING general 2>/dev/null | grep -Fxq running; then
-    pass 'NetworkManager is running'
-  else
-    fail 'NetworkManager is not running'
   fi
 
   swap_kib=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)

@@ -6,6 +6,8 @@ readonly SCRIPT_NAME="${0##*/}"
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 eww_build_dir=''
 eza_tmp_dir=''
+flameshot_tmp_file=''
+lazygit_tmp_dir=''
 neovim_tmp_dir=''
 picom_build_dir=''
 greenclip_tmp_file=''
@@ -123,6 +125,14 @@ cleanup_build_dirs() {
     rm -rf -- "$eza_tmp_dir"
     eza_tmp_dir=''
   fi
+  if [[ -n $flameshot_tmp_file && $flameshot_tmp_file == /tmp/bspwm-flameshot.* ]]; then
+    rm -f -- "$flameshot_tmp_file"
+    flameshot_tmp_file=''
+  fi
+  if [[ -n $lazygit_tmp_dir && $lazygit_tmp_dir == /tmp/bspwm-lazygit.* ]]; then
+    rm -rf -- "$lazygit_tmp_dir"
+    lazygit_tmp_dir=''
+  fi
   if [[ -n $eww_build_dir && $eww_build_dir == /tmp/bspwm-eww.* ]]; then
     rm -rf -- "$eww_build_dir"
     eww_build_dir=''
@@ -142,6 +152,65 @@ cleanup_build_dirs() {
 }
 
 trap cleanup_build_dirs EXIT
+
+install_flameshot() {
+  local version='13.3.0'
+  local asset="flameshot-$version-1.ubuntu-24.04.amd64.deb"
+  local expected_sha256='e6dcec9e817c49776549f8c6998bcaff38f3af77ceb5f7f98c655e55e137b24d'
+
+  if command -v flameshot >/dev/null 2>&1 &&
+    flameshot --version 2>&1 | grep -Fq "$version"; then
+    log "Using the existing Flameshot v$version installation: $(command -v flameshot)"
+    return
+  fi
+
+  [[ $(dpkg --print-architecture) == amd64 ]] ||
+    die "The official Flameshot v$version Ubuntu package is available only for amd64."
+
+  flameshot_tmp_file=$(mktemp /tmp/bspwm-flameshot.XXXXXX.deb)
+  log "Installing Flameshot v$version from its official Ubuntu 24.04 package..."
+  curl -fL --retry 3 \
+    "https://github.com/flameshot-org/flameshot/releases/download/v$version/$asset" \
+    -o "$flameshot_tmp_file"
+  printf '%s  %s\n' "$expected_sha256" "$flameshot_tmp_file" |
+    sha256sum --check --status - || die "Flameshot v$version checksum verification failed."
+  apt-get install -y --no-install-recommends "$flameshot_tmp_file"
+  flameshot --version 2>&1 | grep -Fq "$version" ||
+    die "Flameshot v$version verification failed."
+  rm -f -- "$flameshot_tmp_file"
+  flameshot_tmp_file=''
+}
+
+install_lazygit() {
+  local version='0.64.1'
+  local archive="lazygit_${version}_linux_x86_64.tar.gz"
+  local expected_sha256='f8ea237c41f194cd799b48505518bfdaae4edf5a2ad6bd3d898e939785ee4532'
+
+  if command -v lazygit >/dev/null 2>&1 &&
+    lazygit --version 2>/dev/null | grep -Fq "version=$version"; then
+    log "Using the existing LazyGit v$version installation: $(command -v lazygit)"
+    return
+  fi
+
+  [[ $(dpkg --print-architecture) == amd64 ]] ||
+    die "This setup supports the official LazyGit v$version x86-64 release only."
+
+  lazygit_tmp_dir=$(mktemp -d /tmp/bspwm-lazygit.XXXXXX)
+  log "Installing LazyGit v$version from its official x86-64 release..."
+  curl -fL --retry 3 \
+    "https://github.com/jesseduffield/lazygit/releases/download/v$version/$archive" \
+    -o "$lazygit_tmp_dir/$archive"
+  printf '%s  %s\n' "$expected_sha256" "$lazygit_tmp_dir/$archive" |
+    sha256sum --check --status - || die "LazyGit v$version checksum verification failed."
+  tar -xzf "$lazygit_tmp_dir/$archive" -C "$lazygit_tmp_dir"
+  [[ -x $lazygit_tmp_dir/lazygit ]] ||
+    die 'The LazyGit release archive did not contain the expected binary.'
+  install -m 0755 "$lazygit_tmp_dir/lazygit" /usr/local/bin/lazygit
+  /usr/local/bin/lazygit --version 2>/dev/null | grep -Fq "version=$version" ||
+    die "LazyGit v$version verification failed."
+  rm -rf -- "$lazygit_tmp_dir"
+  lazygit_tmp_dir=''
+}
 
 install_eza() {
   local version='0.23.5'
@@ -409,15 +478,12 @@ packages=(
   chromium-sandbox
   dunst
   feh
-  flameshot
   xclip
   zathura
   zathura-pdf-poppler
   zsh
   nodejs
   npm
-  network-manager
-  wpasupplicant
   rclone
   procps
   util-linux
@@ -482,7 +548,9 @@ apt-get install -y --no-install-recommends "${packages[@]}"
 command -v rclone >/dev/null 2>&1 || die 'rclone installation failed.'
 log "Verified $(rclone version | sed -n '1p')."
 setup_swap
+install_flameshot
 install_eza
+install_lazygit
 [[ -r /usr/share/icons/Papirus-Dark/index.theme ]] ||
   die "Papirus-Dark was installed without its icon theme index."
 gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
@@ -506,8 +574,5 @@ if [[ $(getent passwd "$target_user" | cut -d: -f7) != "$zsh_path" ]]; then
   log "Set Zsh as the login shell for $target_user."
 fi
 
-log 'Switching the Netplan renderer to NetworkManager...'
-"$SCRIPT_DIR/setup-networkmanager.sh" --skip-package-install
-
 log "Installation complete."
-log "Log in on a TTY and run: startx"
+log "Log out, then log in on TTY1; Zsh will start X automatically."

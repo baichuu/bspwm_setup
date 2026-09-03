@@ -143,8 +143,8 @@
   :monitor "<primary>"
   :geometry (geometry
     :x "0%"
-    :y "6px"
-    :width "60%"
+    :y "-8px"
+    :width "55%"
     :height "68px"
     :anchor "bottom center")
   :stacking "fg"

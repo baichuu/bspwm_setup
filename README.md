@@ -2,15 +2,13 @@
 
 This script installs a bspwm desktop environment on Ubuntu Server with Xorg,
 `bspwm`, `sxhkd`, Alacritty, Rofi, LXAppearance, Chromium, Picom, Dunst, Eww,
-Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, Node.js, npm, PipeWire,
-PipeWire Pulse, WirePlumber, NetworkManager, rclone, and a configured wallpaper.
+Zathura, Flameshot, Greenclip, Xclip, Neovim, Zsh, Eza, LazyGit, Node.js, npm, PipeWire,
+PipeWire Pulse, WirePlumber, rclone, and a configured wallpaper.
 It also explicitly installs the XKB libraries required by Alacritty:
 `libxkbcommon0`, `libxkbcommon-x11-0`, and `xkb-data`.
 
-The script does not install a display manager. It intentionally changes the
-Ubuntu Server Netplan renderer to NetworkManager in a guarded final step;
-details and rollback behavior are documented below. Chromium is installed as
-a native `.deb` package from the
+The script does not install a display manager or modify the machine's network
+configuration. Chromium is installed as a native `.deb` package from the
 third-party [XtraDeb applications PPA](https://launchpad.net/~xtradeb/+archive/ubuntu/apps),
 including its required setuid sandbox package, so the setup does not install or
 use Snap/Snapd.
@@ -30,8 +28,9 @@ Before installing, note the following:
   connection. Run `install-bspwm.sh` with `sudo`, but run `install-vivado.sh`
   and `install-openeye.sh` as the regular user without `sudo`.
 - The desktop is X11-only. It deliberately does not install Xwayland, a
-  Wayland compositor, or a display manager. Start the session from a TTY with
-  `startx` after logging out and back in once.
+  Wayland compositor, or a display manager. After installation, log out and
+  log in on TTY1; Zsh starts X automatically. Other TTYs and SSH sessions stay
+  at the shell.
 - Touchpads use the Xorg libinput driver with tap-to-click enabled. One-, two-,
   and three-finger taps map to left, right, and middle click respectively.
   Restart the Xorg session after changing
@@ -58,10 +57,6 @@ Before installing, note the following:
 - The AMD web installer requires an AMD account and interactive acceptance of
   its download terms. This repository cannot embed credentials or bypass that
   step.
-- The final desktop-installation step changes the Netplan renderer from the
-  Ubuntu Server `networkd` default to NetworkManager. Run it at the physical
-  machine, not over SSH, and confirm `netplan try` only after checking that the
-  expected network connection still works.
 
 Ubuntu 24.04 does not provide `eza` in the enabled minimal-server package
 sources used by this setup. The installer therefore downloads the pinned Eza
@@ -84,11 +79,6 @@ desktop environment. Picom, Dunst, and the basic Eww bar are
 lightweight background processes. Chromium remains the largest component and
 will use significantly more memory only while it is running.
 
-NetworkManager replaces networkd as the default device renderer. Only its
-terminal interfaces, `nmcli` and `nmtui`, are used; the setup does not install
-`network-manager-gnome`, `nm-applet`, or a NetworkManager GUI. It does not
-require Snapd.
-
 Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage. The
 small `librsvg2-common` runtime is installed explicitly so Rofi can render the
@@ -97,8 +87,10 @@ The variable Inter package is used instead of all static Inter weights to keep
 the system UI font installation below approximately 1 MB.
 
 Neovim is pinned to v0.11.7 and installed from its official architecture-
-specific Linux tarball under `/opt/nvim-0.11.7`. Picom is pinned to the latest
-stable release available when this setup was updated, v13, and is built with
+specific Linux tarball under `/opt/nvim-0.11.7`. Flameshot is pinned to v13.3.0
+using its official Ubuntu 24.04 package, and LazyGit is pinned to v0.64.1 using
+its official x86-64 tarball. Picom is pinned to the latest stable release
+available when this setup was updated, v13, and is built with
 the lightweight XRender feature set. Build dependencies are retained so later
 source rebuilds do not need to download them again; temporary source and
 download directories are removed.
@@ -139,10 +131,11 @@ The touchpad file is the exception among `/etc` settings: the installer links
 can be maintained with the other desktop configuration. The link is owned by
 root, but its target remains editable by the repository owner.
 
-After installation, log out once, log in as a regular user on a TTY, and run
-`startx`. The fresh login applies Zsh as that user's login shell with the same
-path-and-command-duration prompt used on the source workstation. `Super +
-Enter` also starts Alacritty directly in a Zsh login shell.
+After installation, log out once and log in as the regular user on TTY1. The
+fresh Zsh login automatically executes `startx` and uses the same
+path-and-command-duration prompt as the source workstation. `Super + Enter`
+also starts Alacritty directly in a Zsh login shell. Logins on other TTYs and
+over SSH do not start X automatically.
 
 By default, the script configures the user who invoked `sudo`. If you are
 logged in as root, specify a regular user explicitly:
@@ -174,41 +167,6 @@ rclone config
 rclone version
 rclone listremotes
 swapon --show
-```
-
-## NetworkManager migration
-
-The full installer installs the native Ubuntu `network-manager` and
-`wpasupplicant` packages—never the NetworkManager Snap or GUI—and runs
-`setup-networkmanager.sh` as its final system step. Existing
-interface, DHCP, DNS, Wi-Fi, and static-address definitions stay in their
-original Netplan files. The added
-`config/network/99-bspwm-networkmanager.yaml` changes only the default renderer.
-
-Before changing the live network, the script stores a timestamped copy under
-`/var/backups/bspwm-setup/`, validates the merged Netplan configuration, and
-rejects an existing per-interface `renderer: networkd` override instead of
-silently leaving a mixed setup. It then uses an interactive 60-second
-`netplan try`; rejecting or not confirming the change restores both the live
-and on-disk configuration. For safety, migration is skipped in containers and
-refused over SSH or without an interactive TTY.
-
-After installation, verify ownership and status with:
-
-```bash
-netplan get
-nmcli general status
-nmcli device status
-nmtui
-```
-
-There is no NetworkManager tray applet or graphical connection editor.
-`systemd-networkd` is not purged; Netplan simply stops assigning normal devices
-to it. If a future Git patch changes the renderer file, apply it explicitly
-from the physical TTY:
-
-```bash
-sudo ./setup-networkmanager.sh
 ```
 
 ## Applying and checking later patches
@@ -333,8 +291,6 @@ the target user's `~/.config` directory during installation:
 - `config/greenclip/greenclip.toml`: persistent text and image history limited
   to 50 clipboard entries.
 - `config/npm/npmrc`: user-owned npm global prefix and cache paths.
-- `config/network/99-bspwm-networkmanager.yaml`: selects NetworkManager as the
-  default Netplan renderer while retaining existing interface definitions.
 - `config/eww`: a minimal Espresso-themed bar with an APT update counter,
   CPU/memory helpers, a Rofi power menu, and brightness/PipeWire controls.
 - `config/fontconfig/50-inter-ui.conf`: selects Inter for generic sans-serif UI

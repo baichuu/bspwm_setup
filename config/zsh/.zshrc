@@ -7,6 +7,13 @@ typeset -U path PATH
 path=("$HOME/.npm-global/bin" $path)
 export PATH
 
+# Start X only for a local interactive login on TTY1. SSH sessions and
+# terminals opened inside X keep a normal shell.
+if [[ -z ${DISPLAY:-} && -z ${WAYLAND_DISPLAY:-} && -z ${SSH_CONNECTION:-} &&
+  $(tty 2>/dev/null) == /dev/tty1 ]]; then
+  exec startx
+fi
+
 zmodload zsh/datetime
 typeset -gF PROMPT_COMMAND_STARTED_AT=0
 typeset -g PROMPT_COMMAND_DURATION_SEGMENT=''
