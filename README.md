@@ -80,6 +80,10 @@ desktop environment. Picom, Dunst, and the basic Eww bar are
 lightweight background processes. Chromium remains the largest component and
 will use significantly more memory only while it is running.
 
+The desktop installer also generates `en_US.UTF-8`, which the Vivado launcher
+requires even on an otherwise minimally localized Ubuntu Server installation.
+The Vivado installer checks this again and repairs it when necessary.
+
 Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage. The
 small `librsvg2-common` runtime is installed explicitly so Rofi can render the
@@ -448,7 +452,9 @@ running the web installer again:
 
 This finds the existing `settings64.sh`, removes only the known AMD-generated
 2025.2 desktop entries, recreates `AMD Vivado 2025.2`, and invalidates Rofi's
-application cache. Launch failures are written to
+application cache. It also installs and generates `en_US.UTF-8` when an Ubuntu
+Server minimal installation does not provide that locale; Vivado's
+`rdiArgs.sh` aborts during startup without it. Launch failures are written to
 `~/.cache/vivado-launch.log`.
 
 The installer also creates `~/.local/bin/vivado-batch`. Run a Tcl flow from

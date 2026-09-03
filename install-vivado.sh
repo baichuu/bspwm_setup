@@ -53,6 +53,22 @@ find_vivado_settings() {
     die "Vivado $VIVADO_VERSION settings64.sh was not found under ~/AMD, ~/Xilinx, /tools, or /opt."
 }
 
+ensure_vivado_locale() {
+  if locale -a 2>/dev/null | grep -Fqi 'en_US.utf8'; then
+    log 'Required Vivado locale is available: en_US.UTF-8'
+    return
+  fi
+
+  log 'Generating the en_US.UTF-8 locale required by Vivado...'
+  sudo -v
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends locales
+  sudo locale-gen en_US.UTF-8
+  locale -a 2>/dev/null | grep -Fqi 'en_US.utf8' ||
+    die 'Failed to generate the en_US.UTF-8 locale required by Vivado.'
+  log 'Required Vivado locale is ready: en_US.UTF-8'
+}
+
 remove_amd_desktop_entries() {
   local candidate
   local removed=0
@@ -95,6 +111,8 @@ create_vivado_launcher() {
 launch_log="${XDG_CACHE_HOME:-$HOME/.cache}/vivado-launch.log"
 mkdir -p -- "$(dirname -- "$launch_log")"
 : >"$launch_log"
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 
 if ! source "@SETTINGS@" >>"$launch_log" 2>&1; then
   printf 'Failed to load the Vivado environment. See %s\n' "$launch_log" >&2
@@ -188,6 +206,7 @@ source /etc/os-release
 if [[ $1 == --repair-launcher ]]; then
   log 'Locating the existing Vivado environment...'
   find_vivado_settings
+  ensure_vivado_locale
   create_vivado_launcher
   log 'Launcher repair complete. Open Rofi and select AMD Vivado 2025.2.'
   exit 0
@@ -217,8 +236,10 @@ sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   ca-certificates \
   desktop-file-utils \
+  locales \
   unzip \
   zip
+sudo locale-gen en_US.UTF-8
 
 work_dir=$(mktemp -d /tmp/vivado-2025.2.XXXXXX)
 image_dir="$work_dir/image"
@@ -254,5 +275,6 @@ chmod u+x "$xsetup"
 
 log 'Locating the installed Vivado environment...'
 find_vivado_settings
+ensure_vivado_locale
 create_vivado_launcher
 log 'Open a new terminal, or run: source ~/.config/vivado/settings64.sh'

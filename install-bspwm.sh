@@ -513,6 +513,7 @@ packages=(
   zathura-pdf-poppler
   zsh
   git
+  locales
   rclone
   procps
   util-linux
@@ -578,6 +579,10 @@ fi
 
 log "Installing bspwm and desktop applications..."
 apt-get install -y --no-install-recommends "${packages[@]}"
+log 'Generating the en_US.UTF-8 locale required by Vivado...'
+locale-gen en_US.UTF-8
+locale -a 2>/dev/null | grep -Fqi 'en_US.utf8' ||
+  die 'Failed to generate the en_US.UTF-8 locale required by Vivado.'
 command -v rclone >/dev/null 2>&1 || die 'rclone installation failed.'
 log "Verified $(rclone version | sed -n '1p')."
 setup_swap

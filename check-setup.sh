@@ -202,6 +202,11 @@ if ! $config_only; then
 
   if [[ -r $target_home/.config/vivado/settings64.sh ]]; then
     pass 'Vivado environment link exists'
+    if locale -a 2>/dev/null | grep -Fqi 'en_US.utf8'; then
+      pass 'Vivado en_US.UTF-8 locale exists'
+    else
+      fail 'Vivado en_US.UTF-8 locale is missing; run install-vivado.sh --repair-launcher'
+    fi
     if [[ -x $target_home/.local/bin/vivado-2025.2 ]]; then
       pass 'Vivado GUI wrapper exists'
     else
