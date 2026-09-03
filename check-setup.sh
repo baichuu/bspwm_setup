@@ -202,6 +202,16 @@ if ! $config_only; then
 
   if [[ -r $target_home/.config/vivado/settings64.sh ]]; then
     pass 'Vivado environment link exists'
+    if [[ -x $target_home/.local/bin/vivado-2025.2 ]]; then
+      pass 'Vivado GUI wrapper exists'
+    else
+      fail 'Vivado GUI wrapper is missing; run install-vivado.sh --repair-launcher'
+    fi
+    if [[ -f $target_home/.local/share/applications/amd-vivado-2025.2.desktop ]]; then
+      pass 'Vivado Rofi desktop entry exists'
+    else
+      fail 'Vivado Rofi desktop entry is missing; run install-vivado.sh --repair-launcher'
+    fi
   else
     warn 'Vivado is not installed or its environment link is missing'
   fi

@@ -420,8 +420,9 @@ Use the following choices in the AMD installer:
 7. In **Select the installation directory**, enter the absolute path to the
    regular user's home, for example `/home/baichu/AMD`. Do not leave it blank;
    avoid `~`, spaces, `/root`, and a path owned by root.
-8. Desktop and program-group shortcuts are optional because this repository
-   creates its own `AMD Vivado 2025.2` Rofi launcher after installation.
+8. Clear **Create desktop shortcuts** and **Create program group entries**.
+   This repository creates its own `AMD Vivado 2025.2` Rofi launcher after
+   installation and removes the extra AMD-generated 2025.2 entries.
 9. Before starting the download, verify that the summary says **Vivado ML
    Standard**, not Enterprise, and that only the required MPSoC device support
    is selected. If it still estimates roughly 72 GB as in the Enterprise
@@ -436,6 +437,19 @@ started from a terminal with:
 source ~/.config/vivado/settings64.sh
 vivado
 ```
+
+If the repository launcher was deleted, or Rofi shows the AMD-generated
+`Vivado 2025.2` entry but selecting it does nothing, repair the launcher without
+running the web installer again:
+
+```bash
+./install-vivado.sh --repair-launcher
+```
+
+This finds the existing `settings64.sh`, removes only the known AMD-generated
+2025.2 desktop entries, recreates `AMD Vivado 2025.2`, and invalidates Rofi's
+application cache. Launch failures are written to
+`~/.cache/vivado-launch.log`.
 
 The installer also creates `~/.local/bin/vivado-batch`. Run a Tcl flow from
 any working directory with:
