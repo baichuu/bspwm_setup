@@ -82,7 +82,7 @@ will use significantly more memory only while it is running.
 
 The desktop installer also generates `en_US.UTF-8`, which the Vivado launcher
 requires even on an otherwise minimally localized Ubuntu Server installation.
-The Vivado installer checks this again and repairs it when necessary.
+The Vivado installer checks this again and generates it when missing.
 
 Papirus and Bibata add disk usage because they contain many icon and cursor
 sizes, but they do not add background services or ongoing memory usage. The
@@ -442,22 +442,15 @@ source ~/.config/vivado/settings64.sh
 vivado
 ```
 
-If the repository launcher was deleted, or Rofi shows the AMD-generated
-`Vivado 2025.2` entry but selecting it does nothing, repair the launcher without
-running the web installer again:
-
-```bash
-./install-vivado.sh --repair-launcher
-```
-
-This finds the existing `settings64.sh`, removes only the known AMD-generated
-2025.2 desktop entries, recreates `AMD Vivado 2025.2`, and invalidates Rofi's
-application cache. It also installs and generates `en_US.UTF-8` when an Ubuntu
-Server minimal installation does not provide that locale; Vivado's
-`rdiArgs.sh` aborts during startup without it. Launch failures are written to
-`~/.cache/vivado-launch.log`. The wrapper sets Java's non-reparenting X11 hint
-for bspwm and removes the session's custom `GTK_THEME` only for Vivado, avoiding
-a blank Java GUI without changing the appearance of other applications.
+As part of the normal installation, the script finds `settings64.sh`, removes
+only the known AMD-generated 2025.2 desktop entries, creates `AMD Vivado
+2025.2`, and invalidates Rofi's application cache. It installs and generates
+`en_US.UTF-8`; Vivado's `rdiArgs.sh` aborts during startup without that locale
+on Ubuntu Server minimal. Launch failures are written to
+`~/.cache/vivado-launch.log`. The wrapper also sets Java's non-reparenting X11
+hint for bspwm and removes the session's custom `GTK_THEME` only for Vivado,
+avoiding a blank Java GUI without changing the appearance of other
+applications.
 
 The installer also creates `~/.local/bin/vivado-batch`. Run a Tcl flow from
 any working directory with:

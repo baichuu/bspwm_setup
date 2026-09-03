@@ -205,17 +205,17 @@ if ! $config_only; then
     if locale -a 2>/dev/null | grep -Fqi 'en_US.utf8'; then
       pass 'Vivado en_US.UTF-8 locale exists'
     else
-      fail 'Vivado en_US.UTF-8 locale is missing; run install-vivado.sh --repair-launcher'
+      fail 'Vivado en_US.UTF-8 locale is missing'
     fi
     if [[ -x $target_home/.local/bin/vivado-2025.2 ]]; then
       pass 'Vivado GUI wrapper exists'
     else
-      fail 'Vivado GUI wrapper is missing; run install-vivado.sh --repair-launcher'
+      fail 'Vivado GUI wrapper is missing'
     fi
     if [[ -f $target_home/.local/share/applications/amd-vivado-2025.2.desktop ]]; then
       pass 'Vivado Rofi desktop entry exists'
     else
-      fail 'Vivado Rofi desktop entry is missing; run install-vivado.sh --repair-launcher'
+      fail 'Vivado Rofi desktop entry is missing'
     fi
   else
     warn 'Vivado is not installed or its environment link is missing'

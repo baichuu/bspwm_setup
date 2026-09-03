@@ -131,8 +131,8 @@
                        :value cpu_usage :suffix ""))
       (box :class "bar-tray"
            :space-evenly false
-        (systray :icon-size 34
-                 :spacing 8
+        (systray :icon-size 28
+                 :spacing 6
                  :prepend-new false))
       (button :class "power"
               :tooltip "Power menu"
@@ -143,9 +143,9 @@
   :monitor "<primary>"
   :geometry (geometry
     :x "0%"
-    :y "-8px"
+    :y "-6px"
     :width "55%"
-    :height "68px"
+    :height "56px"
     :anchor "bottom center")
   :stacking "fg"
   :windowtype "dock"

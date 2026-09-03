@@ -171,13 +171,9 @@ usage() {
   cat <<EOF
 Usage:
   ./install-vivado.sh /path/to/FPGAs_AdaptiveSoCs_Unified_2025.2_*_Lin64.bin
-  ./install-vivado.sh --repair-launcher
 
 Prepare Ubuntu, launch the official Vivado ML Standard 2025.2 installer, then
 create a Zsh environment link and an application entry for Rofi.
-
-Use --repair-launcher after Vivado is already installed to remove the extra AMD
-shortcuts and recreate the repository launcher without running the installer.
 
 Download the Linux self-extracting web installer first:
 $DOWNLOAD_URL
@@ -206,15 +202,6 @@ source /etc/os-release
 
 [[ -x $SCRIPT_DIR/config/vivado/vivado-batch ]] ||
   die 'Missing batch helper: config/vivado/vivado-batch'
-
-if [[ $1 == --repair-launcher ]]; then
-  log 'Locating the existing Vivado environment...'
-  find_vivado_settings
-  ensure_vivado_locale
-  create_vivado_launcher
-  log 'Launcher repair complete. Open Rofi and select AMD Vivado 2025.2.'
-  exit 0
-fi
 
 [[ -n ${DISPLAY:-} ]] || die 'Start X11 with startx, then run this script inside Alacritty.'
 
