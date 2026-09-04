@@ -145,7 +145,7 @@
     :x "0%"
     :y "-6px"
     :width "55%"
-    :height "56px"
+    :height "50px"
     :anchor "bottom center")
   :stacking "fg"
   :windowtype "dock"
